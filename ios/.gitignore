@@ -1,0 +1,6 @@
+# Build-Artefakte (nicht committen)
+build/
+DerivedData/
+*.xcuserstate
+**/xcuserdata/
+.DS_Store

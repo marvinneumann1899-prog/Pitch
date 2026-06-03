@@ -1,0 +1,591 @@
+import SwiftUI
+
+// MARK: - Feed
+
+struct FeedPost: Identifiable {
+    let id = UUID()
+    let user: String
+    let role: String
+    let time: String
+    let category: String
+    let rating: String
+    let caption: String
+    let icon: String   // SF Symbol
+}
+
+private let demoPosts: [FeedPost] = [
+    .init(user: "Leon Bäcker", role: "Spieler", time: "vor 2 Std", category: "Highlight",
+          rating: "8.9", caption: "Freistoßtor von der Strafraumkante. Wochenende war gut.", icon: "soccerball"),
+    .init(user: "TSV Eller 04", role: "Verein", time: "vor 5 Std", category: "Erfolg",
+          rating: "9.2", caption: "Aufstieg in die Bezirksliga klargemacht! Wir suchen Verstärkung.", icon: "trophy.fill"),
+    .init(user: "Coach Demir", role: "Coach", time: "gestern", category: "Highlight",
+          rating: "8.1", caption: "Pressing-Drill aus dem Training. Intensität first.", icon: "flame.fill"),
+]
+
+struct FeedView: View {
+    @State private var showSearch = false
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Button { showSearch = true } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Theme.text)
+                    }
+                    Spacer()
+                    Text("PITCH").font(.pitchDisplay(20)).kerning(2)
+                        .foregroundStyle(Theme.text)
+                    Spacer()
+                    Image(systemName: "magnifyingglass").font(.system(size: 18)).opacity(0)
+                }
+                .padding(.horizontal, 20).padding(.vertical, 12)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .bottom)
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(demoPosts) { PostCard(post: $0) }
+                    }
+                    .padding(16)
+                }
+            }
+        }
+        .preferredColorScheme(Theme.scheme)
+        .sheet(isPresented: $showSearch) { SearchView() }
+    }
+}
+
+private struct PostCard: View {
+    let post: FeedPost
+    @State private var ratingActive = false
+    @State private var ratingValue: Double = 8.0
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            cardBody
+                .opacity(ratingActive ? 0.55 : 1)
+            if ratingActive {
+                RatingBar(value: ratingValue)
+                    .padding(.trailing, 16)
+                    .offset(y: -16)
+                    .transition(.scale(scale: 0.18, anchor: .bottom).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private var cardBody: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Avatar(size: 40, systemName: post.icon)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(post.user).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                    Text("\(post.role) · \(post.time)").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                }
+                Spacer()
+                Chip(label: post.category)
+            }
+
+            ZStack {
+                Theme.surfaceAlt
+                Image(systemName: post.icon).font(.system(size: 56)).foregroundStyle(Theme.textFaint.opacity(0.6))
+                Circle().fill(Color.black.opacity(0.55)).frame(width: 56, height: 56)
+                    .overlay(Circle().stroke(Theme.line, lineWidth: 1))
+                    .overlay(Image(systemName: "play.fill").foregroundStyle(Theme.text).font(.system(size: 18)))
+                VStack { HStack {
+                    if post.role == "Spieler" {
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill").font(.system(size: 11))
+                            Text(post.rating).font(.system(size: 13, weight: .black))
+                        }
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 12).padding(.vertical, 5)
+                        .background(Theme.bg).clipShape(Capsule())
+                        .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+                    }
+                    Spacer()
+                }; Spacer() }.padding(12)
+            }
+            .frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+
+            Text(post.caption).font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
+
+            HStack {
+                Image(systemName: "bubble.left")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                Spacer()
+                PitchMark(fg: Theme.accentText)
+                    .padding(6)
+                    .frame(width: 34, height: 34)
+                    .background(Theme.accent)
+                    .clipShape(Circle())
+                    .opacity(ratingActive ? 0 : 1)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { g in
+                                if !ratingActive {
+                                    withAnimation(.easeOut(duration: 0.12)) { ratingActive = true }
+                                }
+                                let v = 8.0 + Double(-g.translation.height) / 24.0
+                                ratingValue = min(10, max(6, (v * 10).rounded() / 10))
+                            }
+                            .onEnded { _ in
+                                withAnimation(.easeOut(duration: 0.15)) { ratingActive = false }
+                                // TODO: ratingValue an Backend / Post-Rating übergeben
+                            }
+                    )
+            }
+            .padding(.top, 12)
+            .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .top)
+        }
+        .padding(16)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+    }
+}
+
+// Rating: der Pitch-Kreis öffnet sich nach oben zu einer Kapsel mit Farbverlauf
+// (rot unten/6 → grün oben/10). Mittig über dem Button, fest. Knopf + Zahl folgen dem Daumen.
+private struct RatingBar: View {
+    let value: Double
+    private let w: CGFloat = 34          // = Durchmesser des Pitch-Kreises
+    private let barH: CGFloat = 188
+
+    var body: some View {
+        let frac = CGFloat((value - 6) / 4)        // 0 bei 6 … 1 bei 10
+        let travel = barH - w - 8                  // Knopf-Weg
+        ZStack(alignment: .bottom) {
+            Capsule()
+                .fill(LinearGradient(
+                    colors: [Color(hex: 0xFF4D4D), Color(hex: 0xFFD23E), Color(hex: 0xC6FF3A), Color(hex: 0x16A34A)],
+                    startPoint: .bottom, endPoint: .top))
+                .frame(width: w, height: barH)
+                .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
+
+            // Chevron unten — da, wo der Kreis war
+            PitchMark(fg: Theme.accentText)
+                .padding(7)
+                .frame(width: w, height: w)
+
+            // Knopf (folgt dem Daumen)
+            Capsule().fill(Theme.text)
+                .frame(width: w - 12, height: 5)
+                .offset(y: -(w * 0.7) - frac * travel)
+
+            // kleine Zahl links vom Knopf
+            Text(String(format: "%.1f", value))
+                .font(.system(size: 13, weight: .heavy))
+                .foregroundStyle(Theme.text)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(Theme.surface)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+                .offset(x: -38, y: -(w * 0.7) - frac * travel)
+                .fixedSize()
+        }
+        .frame(width: w, height: barH, alignment: .bottom)
+    }
+}
+
+// MARK: - Profil
+
+struct ProfileView: View {
+    private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 16) {
+                    HStack {
+                        Text("PROFIL").font(.pitchHead(24)).kerning(1).foregroundStyle(Theme.text)
+                        Spacer()
+                        Image(systemName: "gearshape.fill").font(.system(size: 20)).foregroundStyle(Theme.textMuted)
+                    }
+
+                    PitchCard()
+
+                    // Netzwerk — Follower als echtes Netzwerk (LinkedIn-Gefühl), verbunden mit der Karte
+                    HStack(spacing: 14) {
+                        HStack(spacing: -10) {
+                            ForEach(["soccerball", "trophy.fill", "flame.fill"], id: \.self) { ic in
+                                Image(systemName: ic)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Theme.textMuted)
+                                    .frame(width: 34, height: 34)
+                                    .background(Theme.surfaceAlt)
+                                    .clipShape(Circle())
+                                    .overlay(Circle().stroke(Theme.surface, lineWidth: 2))
+                            }
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("248 Follower").font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                            Text("folgst 96 · 34 Beiträge").font(.system(size: 12)).foregroundStyle(Theme.textMuted)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textFaint)
+                    }
+                    .padding(14)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+
+                    HStack(spacing: 12) {
+                        PitchButton(label: "Profil bearbeiten", variant: .ghost, systemImage: "pencil")
+                        PitchButton(label: "Teilen", variant: .ghost, systemImage: "square.and.arrow.up")
+                    }
+
+                    // Profil verknüpfen
+                    HStack(spacing: 12) {
+                        Image(systemName: "link").font(.system(size: 18)).foregroundStyle(Theme.accent).frame(width: 24)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Profil verknüpfen").font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                            Text("Mit Fußball.de oder Fupa verbinden").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textFaint)
+                    }
+                    .padding(16)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+
+                    // Deine Beiträge
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionLabel("Deine Beiträge")
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                            ForEach(0..<6, id: \.self) { i in
+                                ZStack {
+                                    Theme.surfaceAlt
+                                    Image(systemName: postIcons[i % postIcons.count])
+                                        .font(.system(size: 28)).foregroundStyle(Theme.textFaint)
+                                }
+                                .aspectRatio(1, contentMode: .fill)
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
+            }
+        }
+        .preferredColorScheme(Theme.scheme)
+    }
+
+    private func stat(_ v: String, _ l: String) -> some View {
+        VStack(spacing: 2) {
+            Text(v).font(.pitchHead(20)).foregroundStyle(Theme.text)
+            Text(l).font(.system(size: 11, weight: .bold)).kerning(0.5).foregroundStyle(Theme.textMuted)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    private func divider() -> some View { Rectangle().fill(Theme.line).frame(width: 1, height: 32) }
+}
+
+// MARK: - Beitrag erstellen (＋-Tab)
+
+struct CreatePostView: View {
+    var onDone: () -> Void = {}
+    @State private var category = "Highlight"
+    @State private var text = ""
+    private let categories = ["Highlight", "Erfolg", "Information"]
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Button(action: onDone) {
+                        Image(systemName: "xmark").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                    }
+                    Spacer()
+                    Text("BEITRAG ERSTELLEN").font(.pitchHead(15)).kerning(0.5).foregroundStyle(Theme.text)
+                    Spacer()
+                    Image(systemName: "xmark").font(.system(size: 17)).opacity(0)
+                }
+                .padding(.horizontal, 20).padding(.vertical, 14)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .bottom)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        SectionLabel("Kategorie")
+                        HStack(spacing: 8) {
+                            ForEach(categories, id: \.self) { c in
+                                Chip(label: c, active: category == c).onTapGesture { category = c }
+                            }
+                        }
+
+                        SectionLabel("Medien")
+                        ZStack {
+                            RoundedRectangle(cornerRadius: Theme.rMd).fill(Theme.surface)
+                                .overlay(RoundedRectangle(cornerRadius: Theme.rMd)
+                                    .stroke(Theme.line, style: StrokeStyle(lineWidth: 1.5, dash: [6])))
+                            VStack(spacing: 10) {
+                                Image(systemName: "video.badge.plus").font(.system(size: 34)).foregroundStyle(Theme.textMuted)
+                                Text("Clip oder Foto hinzufügen")
+                                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                            }
+                        }
+                        .frame(height: 180)
+
+                        SectionLabel("Text")
+                        TextField("Was ist passiert?", text: $text, axis: .vertical)
+                            .lineLimit(3...6)
+                            .foregroundStyle(Theme.text)
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .background(Theme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
+
+                        PitchButton(label: "Posten", systemImage: "paperplane.fill", action: onDone).padding(.top, 8)
+                    }
+                    .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
+                }
+            }
+        }
+        .preferredColorScheme(Theme.scheme)
+    }
+}
+
+// MARK: - Nachrichten
+
+struct ChatRow: Identifiable {
+    let id = UUID()
+    let name: String
+    let last: String
+    let time: String
+    let icon: String
+    let unread: Bool
+}
+
+private let demoChats: [ChatRow] = [
+    .init(name: "Coach Demir", last: "Pitch angenommen — lass uns reden!", time: "09:14", icon: "flame.fill", unread: true),
+    .init(name: "TSV Eller 04", last: "Wann hättest du Zeit für ein Probetraining?", time: "gestern", icon: "trophy.fill", unread: true),
+    .init(name: "Leon Bäcker", last: "Stark, danke dir!", time: "Mo", icon: "soccerball", unread: false),
+]
+
+struct MessagesView: View {
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Text("NACHRICHTEN").font(.pitchHead(20)).kerning(1).foregroundStyle(Theme.text)
+                    Spacer()
+                    Image(systemName: "square.and.pencil").font(.system(size: 18)).foregroundStyle(Theme.text)
+                }
+                .padding(.horizontal, 20).padding(.vertical, 12)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .bottom)
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(demoChats) { chat in
+                            HStack(spacing: 12) {
+                                Avatar(size: 48, systemName: chat.icon)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(chat.name).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                                    Text(chat.last).font(.system(size: 13)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                                }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 6) {
+                                    Text(chat.time).font(.system(size: 11)).foregroundStyle(Theme.textFaint)
+                                    if chat.unread { Circle().fill(Theme.accent).frame(width: 9, height: 9) }
+                                }
+                            }
+                            .padding(.horizontal, 20).padding(.vertical, 14)
+                            .overlay(Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 80), alignment: .bottom)
+                        }
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(Theme.scheme)
+    }
+}
+
+// MARK: - Mitteilungen (Benachrichtigungen)
+
+struct NotificationItem: Identifiable {
+    let id = UUID()
+    let icon: String
+    let text: String
+    let time: String
+    let isPitch: Bool
+}
+
+private let demoNotifs: [NotificationItem] = [
+    .init(icon: "paperplane.fill", text: "Coach Demir hat dir einen Pitch gesendet.", time: "vor 3 Min", isPitch: true),
+    .init(icon: "person.badge.plus", text: "Leon Bäcker folgt dir jetzt.", time: "vor 1 Std", isPitch: false),
+    .init(icon: "star.fill", text: "Dein Highlight wurde mit 9.0 bewertet.", time: "vor 2 Std", isPitch: false),
+    .init(icon: "bubble.left", text: "TSV Eller 04 hat deinen Beitrag kommentiert.", time: "gestern", isPitch: false),
+]
+
+struct NotificationsView: View {
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Text("MITTEILUNGEN").font(.pitchHead(20)).kerning(1).foregroundStyle(Theme.text)
+                    Spacer()
+                }
+                .padding(.horizontal, 20).padding(.vertical, 12)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .bottom)
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(demoNotifs) { n in
+                            HStack(spacing: 12) {
+                                Image(systemName: n.icon)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(n.isPitch ? Theme.accentText : Theme.accent)
+                                    .frame(width: 40, height: 40)
+                                    .background(n.isPitch ? Theme.accent : Theme.surfaceAlt)
+                                    .clipShape(Circle())
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if n.isPitch {
+                                        Text("PITCH").font(.system(size: 10, weight: .heavy)).kerning(1)
+                                            .foregroundStyle(Theme.accent)
+                                    }
+                                    Text(n.text).font(.system(size: 14)).foregroundStyle(Theme.text)
+                                    Text(n.time).font(.system(size: 11)).foregroundStyle(Theme.textFaint)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 20).padding(.vertical, 14)
+                            .overlay(Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 72), alignment: .bottom)
+                        }
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(Theme.scheme)
+    }
+}
+
+// Pitch-Logo — aufsteigende Chevrons („Aufstieg", gewählt 03.06.2026)
+struct PitchMark: View {
+    var fg: Color
+    var body: some View {
+        GeometryReader { g in
+            let w = g.size.width, h = g.size.height
+            let lw = max(5, w * 0.12)
+            ZStack {
+                ForEach(0..<3) { i in
+                    let dy = CGFloat(i) * h * 0.24
+                    Path { p in
+                        p.move(to: CGPoint(x: w*0.20, y: h*0.66 + dy))
+                        p.addLine(to: CGPoint(x: w*0.5, y: h*0.42 + dy))
+                        p.addLine(to: CGPoint(x: w*0.80, y: h*0.66 + dy))
+                    }.stroke(fg.opacity(1 - Double(i) * 0.3),
+                             style: StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Suche (Spieler / Coaches / Vereine finden)
+
+struct SearchResult: Identifiable {
+    let id = UUID()
+    let name: String
+    let role: String
+    let sub: String
+    let icon: String
+}
+
+private let demoResults: [SearchResult] = [
+    .init(name: "Jonas Weber", role: "Spieler", sub: "Stürmer · Landesliga · Köln", icon: "soccerball"),
+    .init(name: "Mehmet Demir", role: "Coach", sub: "A-Lizenz · Oberliga · Düsseldorf", icon: "flame.fill"),
+    .init(name: "SV Düsseldorf 04", role: "Verein", sub: "Bezirksliga · sucht Stürmer", icon: "trophy.fill"),
+    .init(name: "Lena Groß", role: "Scout", sub: "Talentscout · NRW", icon: "binoculars.fill"),
+    .init(name: "Tim Albers", role: "Spieler", sub: "Innenverteidiger · Kreisliga · Essen", icon: "soccerball"),
+]
+
+struct SearchView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    @State private var filter = "Alle"
+    private let filters = ["Alle", "Spieler", "Coach", "Scout", "Verein"]
+
+    var results: [SearchResult] {
+        demoResults.filter { r in
+            (filter == "Alle" || r.role == filter) &&
+            (query.isEmpty || r.name.localizedCaseInsensitiveContains(query))
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                // Suchfeld + Abbrechen
+                HStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(Theme.textMuted)
+                        TextField("", text: $query,
+                                  prompt: Text("Spieler, Vereine, Coaches…").foregroundColor(Theme.textFaint))
+                            .foregroundStyle(Theme.text)
+                            .autocorrectionDisabled()
+                    }
+                    .padding(.horizontal, 14).frame(height: 44)
+                    .background(Theme.surface).clipShape(Capsule())
+                    .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+
+                    Button("Abbrechen") { dismiss() }
+                        .font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.accent)
+                }
+                .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
+
+                // Filter
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(filters, id: \.self) { f in
+                            Chip(label: f, active: filter == f).onTapGesture { filter = f }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.bottom, 10)
+
+                // Ergebnisse
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(results) { r in
+                            HStack(spacing: 12) {
+                                Avatar(size: 46, systemName: r.icon)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(r.name).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                                    Text("\(r.role) · \(r.sub)").font(.system(size: 12)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                                }
+                                Spacer()
+                                Image(systemName: "person.badge.plus")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Theme.accent)
+                                    .frame(width: 40, height: 40)
+                                    .background(Theme.surfaceAlt).clipShape(Circle())
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 12)
+                            .overlay(Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 74), alignment: .bottom)
+                        }
+                    }
+                }
+            }
+        }
+        .preferredColorScheme(Theme.scheme)
+    }
+}
+
+#Preview("Feed") { FeedView() }
+#Preview("Suche") { SearchView() }
+#Preview("Mitteilungen") { NotificationsView() }
+#Preview("Chats") { MessagesView() }
+#Preview("Beitrag") { CreatePostView() }
+#Preview("Profil") { ProfileView() }

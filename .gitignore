@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Xcode / Build-Artefakte
+ios/build/
+**/DerivedData/
+*.xcuserstate
+**/xcuserdata/
+
+# Expo-Referenz-Prototyp (alt)
+app/node_modules/
+app/.expo/
+app/dist/
+app/web-build/
