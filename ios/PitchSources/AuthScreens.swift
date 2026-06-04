@@ -1,18 +1,23 @@
 import SwiftUI
+import PhotosUI
 
-// MARK: - Sign-up
+// MARK: - Auth (Login + Registrierung)
 
-struct SignUpView: View {
-    var onContinue: () -> Void = {}
+struct AuthView: View {
+    var onLogin: () -> Void = {}      // bestehender Account → direkt zur App
+    var onSignUp: () -> Void = {}     // neuer Account → Onboarding
+
+    @State private var isSignUp = false
     @State private var email = ""
     @State private var password = ""
+    @State private var isLoading = false
+    @State private var errorMsg: String? = nil
 
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             VStack(spacing: 0) {
                 Spacer()
-                // Brand
                 VStack(spacing: 16) {
                     PitchMark(fg: Theme.accentText)
                         .padding(13)
@@ -25,11 +30,22 @@ struct SignUpView: View {
                 }
                 .padding(.bottom, 40)
 
-                // Form
                 VStack(spacing: 12) {
-                    field("E-Mail", text: $email)
-                    field("Passwort", text: $password, secure: true)
-                    PitchButton(label: "Konto erstellen", action: onContinue)
+                    authField("E-Mail", text: $email)
+                    authField("Passwort", text: $password, secure: true)
+
+                    if let err = errorMsg {
+                        Text(err).font(.system(size: 12)).foregroundStyle(Theme.danger)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    // Primärer Button: Einloggen (Standard) oder Registrieren
+                    PitchButton(
+                        label: isLoading ? "…" : (isSignUp ? "Registrieren" : "Einloggen"),
+                        action: handlePrimary
+                    )
+                    .opacity(isLoading ? 0.6 : 1)
+                    .disabled(isLoading)
 
                     HStack(spacing: 12) {
                         Rectangle().fill(Theme.line).frame(height: 1)
@@ -37,16 +53,28 @@ struct SignUpView: View {
                             .foregroundStyle(Theme.textFaint)
                         Rectangle().fill(Theme.line).frame(height: 1)
                     }
-                    PitchButton(label: "Mit Apple anmelden", variant: .outline, systemImage: "applelogo", action: onContinue)
-                    PitchButton(label: "Mit Google anmelden", variant: .outline, systemImage: "globe", action: onContinue)
+                    PitchButton(label: "Mit Apple anmelden", variant: .outline, systemImage: "applelogo", action: handleApple)
+                    PitchButton(label: "Mit Google anmelden", variant: .outline, systemImage: "globe", action: handleApple)
                 }
 
                 Spacer()
-                HStack(spacing: 4) {
-                    Text("Schon dabei?").foregroundStyle(Theme.textMuted)
-                    Text("Einloggen").foregroundStyle(Theme.accent).fontWeight(.heavy)
+
+                // Footer: toggle zwischen Login und Registrierung
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isSignUp.toggle()
+                        errorMsg = nil
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(isSignUp ? "Schon dabei?" : "Noch nicht dabei?")
+                            .foregroundStyle(Theme.textMuted)
+                        Text(isSignUp ? "Jetzt einloggen" : "Jetzt registrieren")
+                            .foregroundStyle(Theme.accent).fontWeight(.heavy)
+                    }
+                    .font(.system(size: 13))
                 }
-                .font(.system(size: 13))
+                .buttonStyle(.plain)
                 .padding(.bottom, 24)
             }
             .padding(.horizontal, 20)
@@ -54,7 +82,26 @@ struct SignUpView: View {
         .preferredColorScheme(Theme.scheme)
     }
 
-    private func field(_ placeholder: String, text: Binding<String>, secure: Bool = false) -> some View {
+    private func handlePrimary() {
+        guard !email.isEmpty, !password.isEmpty else {
+            errorMsg = "Bitte E-Mail und Passwort eingeben."; return
+        }
+        isLoading = true
+        errorMsg = nil
+        // TODO: Firebase Auth
+        // isSignUp ? Auth.auth().createUser(withEmail:password:) : Auth.auth().signIn(withEmail:password:)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            isLoading = false
+            isSignUp ? onSignUp() : onLogin()
+        }
+    }
+
+    private func handleApple() {
+        // TODO: Apple/Google Sign-In
+        isSignUp ? onSignUp() : onLogin()
+    }
+
+    private func authField(_ placeholder: String, text: Binding<String>, secure: Bool = false) -> some View {
         Group {
             if secure {
                 SecureField("", text: text, prompt: Text(placeholder).foregroundColor(Theme.textFaint))
@@ -73,6 +120,9 @@ struct SignUpView: View {
     }
 }
 
+// Rückwärtskompatibilität — PitchApp.swift referenziert SignUpView
+typealias SignUpView = AuthView
+
 // MARK: - Onboarding (4-Schritt-Wizard: Rolle → Ziel → Profil → Fertig)
 
 struct OnboardingView: View {
@@ -81,8 +131,10 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var role = ""
     @State private var goals: Set<String> = []
-    @State private var name = "Marvin Neumann"
+    @State private var name = ""
     @State private var accepted = false
+    @State private var selectedPhoto: PhotosPickerItem? = nil
+    @State private var profileImage: UIImage? = nil
 
     private let totalSteps = 4
 
@@ -137,20 +189,11 @@ struct OnboardingView: View {
 
     // Schritt 1 — Rolle
     private var roleStep: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 12) {
             stepTitle("Was bist du?", "Wähle deine Rolle. Danach richtet sich Pitch auf dich aus.")
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel("Ich zeige mein Talent")
-                roleCardWide("Spieler", "soccerball")
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel("Ich suche Talent")
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                    roleTile("Trainer", "flame.fill")
-                    roleTile("Verein", "trophy.fill")
-                    roleTile("Scout", "binoculars.fill")
-                }
-            }
+            roleCardWide("Spieler", "soccerball")
+            roleCardWide("Trainer", "flame.fill")
+            roleCardWide("Scout", "binoculars.fill")
         }
     }
 
@@ -200,11 +243,10 @@ struct OnboardingView: View {
     // Schritt 2 — Ziel
     private var goalOptions: [String] {
         switch role {
-        case "Spieler": return ["Verein finden", "Stipendium", "Mitspieler & Netzwerk", "Mich zeigen", "Einfach zum Spaß — Clips teilen"]
+        case "Spieler": return ["Verein finden", "Stipendium", "Netzwerk aufbauen", "Mich zeigen", "Einfach mal abchecken"]
         case "Trainer": return ["Spieler finden", "Verein finden", "Netzwerk aufbauen"]
-        case "Verein": return ["Spieler finden", "Coach finden", "Verein präsentieren"]
         case "Scout": return ["Talente entdecken", "Netzwerk aufbauen"]
-        default: return ["Verein finden", "Netzwerk", "Mich zeigen"]
+        default: return ["Verein finden", "Netzwerk aufbauen", "Mich zeigen"]
         }
     }
 
@@ -237,20 +279,65 @@ struct OnboardingView: View {
         }
     }
 
-    // Schritt 3 — Profil
+    // Schritt 3 — Profil (rollenspezifisch)
     private var profileStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             stepTitle("Deine Pitchkarte", "So sehen dich andere. Alles später änderbar.")
             SectionLabel("Live-Vorschau")
-            PitchCard(name: name, rating: nil)
+            PitchCard(name: name.isEmpty ? "Dein Name" : name, rating: nil, profileImage: profileImage, roleLabel: role)
             SectionLabel("Angaben")
             VStack(spacing: 8) {
+                // Foto-Upload
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    HStack(spacing: 12) {
+                        Image(systemName: profileImage == nil ? "camera.fill" : "checkmark.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Theme.accentText)
+                            .frame(width: 36, height: 36)
+                            .background(Theme.accent)
+                            .clipShape(Circle())
+                        Text(profileImage == nil ? "Profilbild hinzufügen" : "Bild ausgewählt ✓")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(profileImage == nil ? Theme.text : Theme.accent)
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(Theme.textFaint)
+                    }
+                    .padding(14)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(
+                        profileImage == nil ? Theme.line : Theme.accent, lineWidth: profileImage == nil ? 1 : 1.5))
+                }
+                .onChange(of: selectedPhoto) { _, item in
+                    Task {
+                        if let data = try? await item?.loadTransferable(type: Data.self),
+                           let img = UIImage(data: data) {
+                            await MainActor.run { profileImage = img }
+                        }
+                    }
+                }
+
                 labeledField("Name", value: $name)
-                staticField("Alter", "23")
-                staticField("Position", "Innenverteidiger")
-                staticField("Location", "Düsseldorf")
-                staticField("Aktueller Verein", "SV Düsseldorf 04")
-                staticField("Aktuelle Liga", "Landesliga")
+
+                if role == "Spieler" {
+                    staticField("Alter", "23")
+                    staticField("Position", "Innenverteidiger")
+                    staticField("Location", "Düsseldorf")
+                    staticField("Aktueller Verein", "SV Düsseldorf 04")
+                    staticField("Aktuelle Liga", "Landesliga")
+                } else if role == "Trainer" {
+                    staticField("Alter", "34")
+                    staticField("Erfahrung", "8 Jahre")
+                    staticField("Aktuelle Liga", "Kreisliga")
+                    staticField("Location", "Düsseldorf")
+                    staticField("Aktueller Verein", "SV Düsseldorf 04")
+                    staticField("Favorisierte Aufstellung", "4-3-3")
+                } else if role == "Scout" {
+                    staticField("Erfahrung", "5 Jahre")
+                    staticField("Location", "Düsseldorf")
+                    staticField("Organisation / Verein", "FC Beispiel")
+                    staticField("Fokus-Liga", "Landesliga / Oberliga")
+                }
             }
         }
     }
@@ -265,7 +352,7 @@ struct OnboardingView: View {
             Text("Fast geschafft!").font(.pitchHead(26)).foregroundStyle(Theme.text)
             Text("Dein Profil ist startklar. Willkommen bei Pitch.")
                 .font(.system(size: 14)).foregroundStyle(Theme.textMuted).multilineTextAlignment(.center)
-            PitchCard(name: name, rating: nil).padding(.top, 4)
+            PitchCard(name: name.isEmpty ? "Dein Name" : name, rating: nil, profileImage: profileImage, roleLabel: role).padding(.top, 4)
             Button { accepted.toggle() } label: {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: accepted ? "checkmark.square.fill" : "square")

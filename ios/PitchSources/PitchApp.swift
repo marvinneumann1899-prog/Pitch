@@ -19,7 +19,10 @@ struct RootView: View {
             Theme.bg.ignoresSafeArea()
             switch phase {
             case .auth:
-                SignUpView { phase = .onboarding }
+                AuthView(
+                    onLogin: { phase = .main },       // Login → direkt zur App
+                    onSignUp: { phase = .onboarding } // Registrierung → Onboarding
+                )
             case .onboarding:
                 OnboardingView { phase = .main }
             case .main:
