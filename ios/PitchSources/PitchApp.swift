@@ -21,7 +21,7 @@ struct RootView: View {
             case .auth:
                 SignUpView { phase = .onboarding }
             case .onboarding:
-                OnboardingPitchView { phase = .main }
+                OnboardingView { phase = .main }
             case .main:
                 MainTabView()
             }
