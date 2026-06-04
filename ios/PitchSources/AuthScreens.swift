@@ -22,9 +22,6 @@ struct SignUpView: View {
                     Text("PITCH")
                         .font(.pitchDisplay(34)).kerning(4)
                         .foregroundStyle(Theme.text)
-                    Text("Pitch your play")
-                        .font(.system(size: 15)).kerning(0.5)
-                        .foregroundStyle(Theme.textMuted)
                 }
                 .padding(.bottom, 40)
 
@@ -141,38 +138,58 @@ struct OnboardingView: View {
     // Schritt 1 — Rolle
     private var roleStep: some View {
         VStack(alignment: .leading, spacing: 22) {
-            stepTitle("Was bist du?", "Wähl deine Rolle. Danach richten wir Pitch auf dich aus.")
+            stepTitle("Was bist du?", "Wähle deine Rolle. Danach richtet sich Pitch auf dich aus.")
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel("Ich zeige mein Talent")
-                roleCard("Spieler", "Sportler, der gesehen werden will", "soccerball")
+                roleCardWide("Spieler", "soccerball")
             }
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel("Ich suche Talent")
-                roleCard("Trainer", "Coach auf der Suche", "flame.fill")
-                roleCard("Verein", "Klub, der Spieler & Coaches sucht", "trophy.fill")
-                roleCard("Scout", "Talentscout", "binoculars.fill")
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    roleTile("Trainer", "flame.fill")
+                    roleTile("Verein", "trophy.fill")
+                    roleTile("Scout", "binoculars.fill")
+                }
             }
         }
     }
 
-    private func roleCard(_ r: String, _ desc: String, _ icon: String) -> some View {
+    // Spieler — die primäre Rolle, prominente Karte über die volle Breite
+    private func roleCardWide(_ r: String, _ icon: String) -> some View {
         let active = role == r
         return HStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(active ? Theme.accentText : Theme.accent)
-                .frame(width: 44, height: 44)
+                .frame(width: 46, height: 46)
                 .background(active ? Theme.accent : Theme.surfaceAlt)
                 .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text(r).font(.system(size: 16, weight: .heavy)).foregroundStyle(Theme.text)
-                Text(desc).font(.system(size: 12)).foregroundStyle(Theme.textMuted)
-            }
+            Text(r).font(.system(size: 16, weight: .heavy)).foregroundStyle(Theme.text)
             Spacer()
             Image(systemName: active ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 20)).foregroundStyle(active ? Theme.accent : Theme.line)
+                .font(.system(size: 22)).foregroundStyle(active ? Theme.accent : Theme.line)
         }
-        .padding(14)
+        .padding(16)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(active ? Theme.accent : Theme.line, lineWidth: active ? 1.5 : 1))
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(.easeOut(duration: 0.12)) { role = r; goals = [] } }
+    }
+
+    // Talent-suchende Rollen — kompakte Kacheln nebeneinander
+    private func roleTile(_ r: String, _ icon: String) -> some View {
+        let active = role == r
+        return VStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(active ? Theme.accentText : Theme.accent)
+                .frame(width: 46, height: 46)
+                .background(active ? Theme.accent : Theme.surfaceAlt)
+                .clipShape(Circle())
+            Text(r).font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.text)
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 16)
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(active ? Theme.accent : Theme.line, lineWidth: active ? 1.5 : 1))
@@ -183,7 +200,7 @@ struct OnboardingView: View {
     // Schritt 2 — Ziel
     private var goalOptions: [String] {
         switch role {
-        case "Spieler": return ["Verein finden", "Stipendium", "Mitspieler & Netzwerk", "Mich zeigen", "Besser werden"]
+        case "Spieler": return ["Verein finden", "Stipendium", "Mitspieler & Netzwerk", "Mich zeigen", "Einfach zum Spaß — Clips teilen"]
         case "Trainer": return ["Spieler finden", "Verein finden", "Netzwerk aufbauen"]
         case "Verein": return ["Spieler finden", "Coach finden", "Verein präsentieren"]
         case "Scout": return ["Talente entdecken", "Netzwerk aufbauen"]
@@ -289,7 +306,7 @@ struct OnboardingView: View {
     // Helpers
     private func stepTitle(_ title: String, _ sub: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.pitchHead(26)).foregroundStyle(Theme.text)
+            Text(title).font(.system(size: 27, weight: .black)).foregroundStyle(Theme.text)
             Text(sub).font(.system(size: 13)).foregroundStyle(Theme.textMuted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

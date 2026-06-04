@@ -14,6 +14,18 @@
 **Logo (gewählt 03.06.):** „Aufstieg" — drei aufsteigende Chevrons (custom Vektor, `PitchMark` in MainScreens.swift). Im Login-Badge + als Pitch-Button im Feed. Passt zur Positionierung (hoch = entdeckt werden). Kreis klein, Chevrons groß.
 **Rating-Interaktion (gebaut 03.06.):** Pitch-Button im Feed *gedrückt halten* → dünner rot(6)→grün(10)-Balken wächst aus dem Kreis hoch → Daumen hoch/runter swipen → loslassen = Bewertung. `RatingBar` + DragGesture in PostCard. Skala aktuell **6–10** (Doc sagt 7–10 — offen). Nav-Leiste = nur Icons, Feed·Mitteilungen·＋·Chats·Profil.
 **Onboarding (gebaut 04.06.):** 4-Schritt-Wizard (`OnboardingView`, ersetzt das alte Ein-Screen) — Rolle (Spieler/Trainer/Verein/Scout, gruppiert Talent-zeigen vs Talent-suchen) → Ziel (rollenabhängige Mehrfachauswahl, fürs Matching) → Profil (Pitchkarte + Felder) → Fertig (AGB + „Loslegen"). Fortschrittsbalken + Zurück, „Weiter" gated. Offen: Profil-Felder noch nur Spieler-Variante; Ziele später an Algorithmus.
+**Design-Feinschliff (04.06., 2. Runde):** Login = „Pitch your play" raus (cleaner). Onboarding-Rolle: Titel nicht mehr expanded/„verzogen" (jetzt `.black` statt `pitchHead`), Spieler als prominente Vollbreit-Karte ohne Untertitel, Trainer/Verein/Scout als kompakte Kacheln 2-spaltig nebeneinander. Ziel: „Einfach zum Spaß — Clips teilen" als Spieler-Option ergänzt. Feed: Video jetzt Hero (340pt), Außenränder schlanker, Name oben leichter. Profil neu sortiert: Follower-Karte ZUERST → Pitchkarte → „Profil bearbeiten" (Vollbreite, „Teilen" raus) → Beiträge → „Profil verknüpfen" ganz unten.
+
+**★ PRODUKT-ENTSCHEIDUNG Folgen/Vernetzen/Pitchen (04.06., aus Nicks Doc geklärt):** Drei Stufen, messen verschiedene Dinge —
+- **Folgen** = einseitig, keine Erlaubnis, personalisiert den Feed (Instagram-Logik). *Aufmerksamkeit.*
+- **Vernetzen** = beidseitig (Anfrage→annehmen), schaltet Chat frei, zählt als Kontakt (LinkedIn-Logik). *Beziehung.*
+- **Pitch** = rollenabhängig (Spieler↔Verein/Coach, beide Richtungen), auffällig annehmen/ablehnen → bei Annahme auto-vernetzt + Chat öffnet mit „Pitch erfolgreich". *Absicht zur Zusammenarbeit.*
+- **Bewerten ≠ Pitchen:** Bewerten = Qualität *eines Beitrags* (Regler 7–10, 0,1-Schritte, nur Highlights zählen fürs Rating). Pitchen = Interesse *an einer Person/Club*.
+- **Pitch lebt NUR auf dem Profil**, nicht im Feed (Marvin-Entscheidung 04.06. — macht Pitch bewusst/knapp, kein Like-Gefühl).
+
+**Feed-Aktionsleiste (gebaut 04.06., doc-treu):** Bewerten LINKS (Swipe-Regler, Stern-Griff statt Chevron, Skala **7–10**), Kommentar RECHTS (Neon-Kreis + Count). Pitch aus dem Feed entfernt.
+
+**Offen / als Nächstes:** (1) **Fremd-Profil-Screen** bauen (aktuell nur eigenes Profil) — dort leben Folgen→Vernetzen→Chat + **Pitch-Button** (Chevron-Logo, rollenabhängig). (2) Netzwerk-Tab mit Reitern „Anfragen/Follower/Pitch" + „Vakant" (gesendete). (3) Verein/Coach Onboarding-Profilfelder (aktuell nur Spieler). (4) Pitchkarte rollenabhängige Felder (Trainer: Erfahrung/Aufstellung; Verein: Altersdurchschnitt).
 **GitHub:** Privates Repo `marvinneumann1899-prog/Pitch` (`main`, Remote `origin`, von Codex erstellt/gepusht, sauber: 41 Dateien, keine Build-Artefakte). **Nick (`nickneumann381-dev`) eingeladen mit write-Rechten (04.06.)** — muss Einladung noch annehmen, dann klonen + Xcode-Setup (`ios/SETUP.md`).
 **Offen / nächste:** (1) **Pitch vs. Rating klären:** Feed-Button = jetzt Bewerten-per-Swipe. Ist „Pitch=Person connecten" damit vereint (A) oder separat (B)? Skala 6–10 vs 7–10. (2) Pitch-Aktion bei Verein/Coach. (3) Palette final (lime vs Bruders rot/hellblau — Tendenz schwarz-grün). (4) Echte Grotesk-Schrift. (5) Nick als Collaborator hinzufügen. (6) Firebase echt.
 

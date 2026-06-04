@@ -44,10 +44,10 @@ struct FeedView: View {
                 .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .bottom)
 
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 14) {
                         ForEach(demoPosts) { PostCard(post: $0) }
                     }
-                    .padding(16)
+                    .padding(.horizontal, 10).padding(.vertical, 12)
                 }
             }
         }
@@ -62,12 +62,12 @@ private struct PostCard: View {
     @State private var ratingValue: Double = 8.0
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack(alignment: .bottomLeading) {
             cardBody
                 .opacity(ratingActive ? 0.55 : 1)
             if ratingActive {
                 RatingBar(value: ratingValue)
-                    .padding(.trailing, 16)
+                    .padding(.leading, 13)
                     .offset(y: -16)
                     .transition(.scale(scale: 0.18, anchor: .bottom).combined(with: .opacity))
                     .allowsHitTesting(false)
@@ -77,10 +77,10 @@ private struct PostCard: View {
 
     private var cardBody: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Avatar(size: 40, systemName: post.icon)
+            HStack(spacing: 10) {
+                Avatar(size: 34, systemName: post.icon)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(post.user).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                    Text(post.user).font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.text)
                     Text("\(post.role) · \(post.time)").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
                 }
                 Spacer()
@@ -107,18 +107,16 @@ private struct PostCard: View {
                     Spacer()
                 }; Spacer() }.padding(12)
             }
-            .frame(height: 200)
+            .frame(height: 340)
             .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
 
             Text(post.caption).font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
 
-            HStack {
-                Image(systemName: "bubble.left")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.textMuted)
-                Spacer()
-                PitchMark(fg: Theme.accentText)
-                    .padding(6)
+            HStack(spacing: 10) {
+                // Bewerten — Swipe-Regler (links). Gedrückt halten + hoch/runter = 7–10.
+                Image(systemName: "star.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accentText)
                     .frame(width: 34, height: 34)
                     .background(Theme.accent)
                     .clipShape(Circle())
@@ -129,34 +127,46 @@ private struct PostCard: View {
                                 if !ratingActive {
                                     withAnimation(.easeOut(duration: 0.12)) { ratingActive = true }
                                 }
-                                let v = 8.0 + Double(-g.translation.height) / 24.0
-                                ratingValue = min(10, max(6, (v * 10).rounded() / 10))
+                                let v = 8.5 + Double(-g.translation.height) / 24.0
+                                ratingValue = min(10, max(7, (v * 10).rounded() / 10))
                             }
                             .onEnded { _ in
                                 withAnimation(.easeOut(duration: 0.15)) { ratingActive = false }
                                 // TODO: ratingValue an Backend / Post-Rating übergeben
                             }
                     )
+                Text("Bewerten").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textMuted)
+                    .opacity(ratingActive ? 0 : 1)
+                Spacer()
+                // Kommentar (rechts)
+                Text("12").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.textMuted)
+                Image(systemName: "bubble.left.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 34, height: 34)
+                    .background(Theme.accent.opacity(0.14))
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Theme.accent.opacity(0.55), lineWidth: 1))
             }
-            .padding(.top, 12)
+            .padding(.top, 10)
             .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .top)
         }
-        .padding(16)
+        .padding(13)
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
     }
 }
 
-// Rating: der Pitch-Kreis öffnet sich nach oben zu einer Kapsel mit Farbverlauf
-// (rot unten/6 → grün oben/10). Mittig über dem Button, fest. Knopf + Zahl folgen dem Daumen.
+// Bewerten: der Stern-Kreis öffnet sich nach oben zu einer Kapsel mit Farbverlauf
+// (rot unten/7 → grün oben/10). Mittig über dem Button, fest. Knopf + Zahl folgen dem Daumen.
 private struct RatingBar: View {
     let value: Double
-    private let w: CGFloat = 34          // = Durchmesser des Pitch-Kreises
+    private let w: CGFloat = 34          // = Durchmesser des Bewerten-Kreises
     private let barH: CGFloat = 188
 
     var body: some View {
-        let frac = CGFloat((value - 6) / 4)        // 0 bei 6 … 1 bei 10
+        let frac = CGFloat((value - 7) / 3)        // 0 bei 7 … 1 bei 10
         let travel = barH - w - 8                  // Knopf-Weg
         ZStack(alignment: .bottom) {
             Capsule()
@@ -166,9 +176,10 @@ private struct RatingBar: View {
                 .frame(width: w, height: barH)
                 .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
 
-            // Chevron unten — da, wo der Kreis war
-            PitchMark(fg: Theme.accentText)
-                .padding(7)
+            // Stern unten — da, wo der Kreis war
+            Image(systemName: "star.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.accentText)
                 .frame(width: w, height: w)
 
             // Knopf (folgt dem Daumen)
@@ -207,9 +218,7 @@ struct ProfileView: View {
                         Image(systemName: "gearshape.fill").font(.system(size: 20)).foregroundStyle(Theme.textMuted)
                     }
 
-                    PitchCard()
-
-                    // Netzwerk — Follower als echtes Netzwerk (LinkedIn-Gefühl), verbunden mit der Karte
+                    // Netzwerk — Follower zuerst (LinkedIn-Gefühl)
                     HStack(spacing: 14) {
                         HStack(spacing: -10) {
                             ForEach(["soccerball", "trophy.fill", "flame.fill"], id: \.self) { ic in
@@ -234,25 +243,9 @@ struct ProfileView: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
                     .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
 
-                    HStack(spacing: 12) {
-                        PitchButton(label: "Profil bearbeiten", variant: .ghost, systemImage: "pencil")
-                        PitchButton(label: "Teilen", variant: .ghost, systemImage: "square.and.arrow.up")
-                    }
+                    PitchCard()
 
-                    // Profil verknüpfen
-                    HStack(spacing: 12) {
-                        Image(systemName: "link").font(.system(size: 18)).foregroundStyle(Theme.accent).frame(width: 24)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Profil verknüpfen").font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
-                            Text("Mit Fußball.de oder Fupa verbinden").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textFaint)
-                    }
-                    .padding(16)
-                    .background(Theme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+                    PitchButton(label: "Profil bearbeiten", variant: .ghost, systemImage: "pencil")
 
                     // Deine Beiträge
                     VStack(alignment: .leading, spacing: 10) {
@@ -270,6 +263,21 @@ struct ProfileView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Profil verknüpfen — ganz unten
+                    HStack(spacing: 12) {
+                        Image(systemName: "link").font(.system(size: 18)).foregroundStyle(Theme.accent).frame(width: 24)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Profil verknüpfen").font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                            Text("Mit Fußball.de oder Fupa verbinden").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textFaint)
+                    }
+                    .padding(16)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
                 }
                 .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
             }
