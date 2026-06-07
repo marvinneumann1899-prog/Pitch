@@ -9,24 +9,23 @@ struct PitchApp: App {
     }
 }
 
-enum Phase { case auth, onboarding, main }
-
 struct RootView: View {
-    @State private var phase: Phase = .auth
+    // geteilte App-Phase, damit z. B. „Abmelden" aus den Einstellungen funktioniert
+    @AppStorage("appPhase") private var phase = "auth"
 
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             switch phase {
-            case .auth:
-                AuthView(
-                    onLogin: { phase = .main },       // Login → direkt zur App
-                    onSignUp: { phase = .onboarding } // Registrierung → Onboarding
-                )
-            case .onboarding:
-                OnboardingView { phase = .main }
-            case .main:
+            case "onboarding":
+                OnboardingView { phase = "main" }
+            case "main":
                 MainTabView()
+            default:
+                AuthView(
+                    onLogin: { phase = "main" },       // Login → direkt zur App
+                    onSignUp: { phase = "onboarding" } // Registrierung → Onboarding
+                )
             }
         }
         .preferredColorScheme(Theme.scheme)

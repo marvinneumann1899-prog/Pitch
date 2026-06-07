@@ -75,6 +75,15 @@ struct AuthView: View {
                     .font(.system(size: 13))
                 }
                 .buttonStyle(.plain)
+                .padding(.bottom, 12)
+
+                // Demo: ohne Anmeldung direkt in die App
+                Button { onLogin() } label: {
+                    Text("Ohne Anmeldung ansehen →")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                .buttonStyle(.plain)
                 .padding(.bottom, 24)
             }
             .padding(.horizontal, 20)
