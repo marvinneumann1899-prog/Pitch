@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Feed
 
@@ -26,6 +27,21 @@ private let demoPosts: [FeedPost] = [
     .init(user: "Coach Demir", role: "Coach", time: "gestern", category: "Highlight",
           rating: nil, caption: "Pressing-Drill aus dem Training. Erst 3 Bewertungen.",
           icon: "flame.fill", reason: "Weil du Fußball folgst"),
+    .init(user: "Jonas Weber", role: "Spieler", time: "vor 1 Std", category: "Highlight",
+          rating: "9.3", caption: "Solo über das halbe Feld und eiskalt abgeschlossen. 🔥",
+          icon: "soccerball", reason: "In deiner Nähe"),
+    .init(user: "Lena Groß", role: "Scout", time: "vor 4 Std", category: "Information",
+          rating: nil, caption: "Bin am Wochenende bei den Landesliga-Spielen in NRW unterwegs. Wer sticht raus?",
+          icon: "binoculars.fill", reason: "Dein Kontakt folgt ihr"),
+    .init(user: "Tim Albers", role: "Spieler", time: "vor 6 Std", category: "Highlight",
+          rating: "7.8", caption: "Zwei Tackles, ein Assist. Defensive stand wie eine Wand.",
+          icon: "soccerball", reason: "Weil du Fußball folgst"),
+    .init(user: "SV Düsseldorf 04", role: "Vereinsverantwortlicher", time: "gestern", category: "Erfolg",
+          rating: nil, caption: "Unser Torwart hat verlängert! Drei weitere Jahre zwischen den Pfosten. 🧤",
+          icon: "trophy.fill", reason: "In deiner Nähe"),
+    .init(user: "Marco Stein", role: "Spieler", time: "vor 8 Std", category: "Highlight",
+          rating: "8.4", caption: "Doppelpack im Derby. Tag könnte nicht besser sein.",
+          icon: "soccerball", reason: "Dein Kontakt hat das bewertet"),
 ]
 
 struct FeedView: View {
@@ -128,7 +144,7 @@ private struct PostCard: View {
                     UserProfileView(person: post.person)
                 } label: {
                     HStack(spacing: 10) {
-                        Avatar(size: 34, systemName: post.icon)
+                        Avatar(size: 34, name: post.user)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(post.user).font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.text)
                             Text("\(post.role) · \(post.time)").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
@@ -310,6 +326,12 @@ struct ProfileView: View {
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
     @State private var showEdit = false
+    @State private var showAttrPicker = false
+    @State private var attributes: [String] = ["Schnelligkeit", "Zweikampf", "Kopfball"]
+    @State private var bio = "Innenverteidiger mit Drang nach vorne. Suche den nächsten Schritt — ehrgeizig, teamfähig, immer am Limit."
+    // Pitch-Nutzung diese Woche (Bar füllt sich mit Verbrauch)
+    private let pitchesUsed = 3
+    private let pitchesMax = 5
 
     var body: some View {
         NavigationStack {
@@ -328,27 +350,33 @@ struct ProfileView: View {
                         .buttonStyle(.plain)
                     }
 
-                    // Stats: Follower & Folge ich (aus Folgen/Content) + Netzwerk (aus Pitches)
+                    // Pitch-Nutzung — freistehend (keine Box), liegt direkt über den Stats
+                    NavigationLink { PitchLimitView() } label: {
+                        VStack(spacing: 6) {
+                            HStack {
+                                Text("Pitches diese Woche")
+                                    .font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textMuted)
+                                Spacer()
+                                Text("\(pitchesUsed)/\(pitchesMax)")
+                                    .font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.text)
+                            }
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Theme.surfaceAlt)
+                                    Capsule().fill(Theme.accent)
+                                        .frame(width: geo.size.width * CGFloat(pitchesUsed) / CGFloat(pitchesMax))
+                                }
+                            }
+                            .frame(height: 6)
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Stats: Netzwerk · Pitches (⚡) · Folge ich (Folge ich nur auf eigenem Profil)
                     HStack(spacing: 0) {
                         NavigationLink { FollowersView(startTab: 0) } label: {
-                            VStack(spacing: 3) {
-                                Text("248").font(.pitchHead(20)).foregroundStyle(Theme.text)
-                                Text("FOLLOWER").font(.system(size: 9, weight: .heavy)).kerning(0.8)
-                                    .foregroundStyle(Theme.textMuted)
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.plain)
-
-                        Rectangle().fill(Theme.line).frame(width: 1, height: 34)
-
-                        NavigationLink { FollowersView(startTab: 1) } label: {
-                            VStack(spacing: 3) {
-                                Text("96").font(.pitchHead(20)).foregroundStyle(Theme.text)
-                                Text("FOLGE ICH").font(.system(size: 9, weight: .heavy)).kerning(0.8)
-                                    .foregroundStyle(Theme.textMuted)
-                            }
-                            .frame(maxWidth: .infinity)
+                            statCol(value: "34", label: "NETZWERK")
                         }
                         .buttonStyle(.plain)
 
@@ -360,12 +388,19 @@ struct ProfileView: View {
                                     Image(systemName: "bolt.fill")
                                         .font(.system(size: 12, weight: .black))
                                         .foregroundStyle(Theme.accent)
-                                    Text("34").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                    Text("12").font(.pitchHead(20)).foregroundStyle(Theme.text)
                                 }
-                                Text("NETZWERK").font(.system(size: 9, weight: .heavy)).kerning(0.8)
+                                Text("PITCHES").font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
                             }
                             .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+
+                        Rectangle().fill(Theme.line).frame(width: 1, height: 34)
+
+                        NavigationLink { FollowersView(startTab: 1) } label: {
+                            statCol(value: "96", label: "FOLGE ICH")
                         }
                         .buttonStyle(.plain)
                     }
@@ -374,40 +409,22 @@ struct ProfileView: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
                     .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
 
-                    // Pitch-Limit-Karte → öffnet Pitch-Limit-Screen (Nutzung + kaufen)
-                    NavigationLink {
-                        PitchLimitView()
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "bolt.fill")
-                                .font(.system(size: 15, weight: .black))
-                                .foregroundStyle(Theme.accent)
-                                .frame(width: 34, height: 34)
-                                .background(Theme.accent.opacity(0.12))
-                                .clipShape(Circle())
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("3 / 5 Pitches diese Woche")
-                                    .font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.text)
-                                Text("Reset · Freitag 21:00 Uhr")
-                                    .font(.system(size: 11)).foregroundStyle(Theme.textMuted)
-                            }
-                            Spacer()
-                            ZStack(alignment: .leading) {
-                                Capsule().fill(Theme.surfaceAlt).frame(width: 60, height: 6)
-                                Capsule().fill(Theme.accent).frame(width: 36, height: 6)
-                            }
-                            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textFaint)
-                        }
-                        .padding(14)
-                        .background(Theme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-
-                    PitchCard()
+                    PitchCard(roleLabel: "Spieler", attributes: attributes, onAddAttribute: { showAttrPicker = true })
 
                     PitchButton(label: "Profil bearbeiten", variant: .ghost, systemImage: "pencil") { showEdit = true }
+
+                    // Info über mich (Bio)
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionLabel("Info über mich")
+                        Text(bio)
+                            .font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(Theme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     // Deine Beiträge
                     VStack(alignment: .leading, spacing: 10) {
@@ -425,6 +442,30 @@ struct ProfileView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Cloud-Link zu persönlichen Highlights (Exposé)
+                    NavigationLink { ExposeView() } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "icloud.fill")
+                                .font(.system(size: 18))
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 40, height: 40)
+                                .background(Theme.accent.opacity(0.12))
+                                .clipShape(Circle())
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Meine Highlights (Cloud)").font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                                Text("Clips & Dateien — sichtbar nach erfolgreichem Pitch")
+                                    .font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.textFaint)
+                        }
+                        .padding(16)
+                        .background(Theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
 
                     // integrations: externe Profile verlinken (Fupa, Fußball.de …)
                     NavigationLink {
@@ -459,6 +500,20 @@ struct ProfileView: View {
         .toolbar(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(Theme.scheme)
+        .sheet(isPresented: $showAttrPicker) {
+            AttributePicker(selected: $attributes, role: "Spieler")
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private func statCol(value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value).font(.pitchHead(20)).foregroundStyle(Theme.text)
+            Text(label).font(.system(size: 9, weight: .heavy)).kerning(0.8)
+                .foregroundStyle(Theme.textMuted)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func stat(_ v: String, _ l: String) -> some View {
@@ -477,6 +532,12 @@ struct CreatePostView: View {
     var onDone: () -> Void = {}
     @State private var category = "Highlight"
     @State private var text = ""
+    @State private var selectedMedia: PhotosPickerItem? = nil
+    @State private var mediaImage: UIImage? = nil
+    @State private var showSourceDialog = false
+    @State private var showPhotoPicker = false
+    @State private var showTagPeople = false
+    @State private var taggedPeople: [String] = []
     private let categories = ["Highlight", "Erfolg", "Information"]
 
     var body: some View {
@@ -505,17 +566,26 @@ struct CreatePostView: View {
                         }
 
                         SectionLabel("Medien")
-                        ZStack {
-                            RoundedRectangle(cornerRadius: Theme.rMd).fill(Theme.surface)
-                                .overlay(RoundedRectangle(cornerRadius: Theme.rMd)
-                                    .stroke(Theme.line, style: StrokeStyle(lineWidth: 1.5, dash: [6])))
-                            VStack(spacing: 10) {
-                                Image(systemName: "video.badge.plus").font(.system(size: 34)).foregroundStyle(Theme.textMuted)
-                                Text("Clip oder Foto hinzufügen")
-                                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                        Button { showSourceDialog = true } label: {
+                            ZStack {
+                                if let img = mediaImage {
+                                    Image(uiImage: img).resizable().scaledToFill()
+                                } else {
+                                    RoundedRectangle(cornerRadius: Theme.rMd).fill(Theme.surface)
+                                        .overlay(RoundedRectangle(cornerRadius: Theme.rMd)
+                                            .stroke(Theme.line, style: StrokeStyle(lineWidth: 1.5, dash: [6])))
+                                    VStack(spacing: 10) {
+                                        Image(systemName: "video.badge.plus").font(.system(size: 34)).foregroundStyle(Theme.textMuted)
+                                        Text("Clip oder Foto hinzufügen")
+                                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                                    }
+                                }
                             }
+                            .frame(height: 180)
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
                         }
-                        .frame(height: 180)
+                        .buttonStyle(.plain)
 
                         SectionLabel("Text")
                         TextField("Was ist passiert?", text: $text, axis: .vertical)
@@ -527,9 +597,119 @@ struct CreatePostView: View {
                             .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
                             .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
 
+                        // Personen markieren
+                        Button { showTagPeople = true } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "person.crop.circle.badge.plus")
+                                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.accent)
+                                Text(taggedPeople.isEmpty ? "Personen markieren"
+                                     : taggedPeople.joined(separator: ", "))
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(taggedPeople.isEmpty ? Theme.textMuted : Theme.text)
+                                    .lineLimit(1)
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textFaint)
+                            }
+                            .padding(14)
+                            .background(Theme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+
                         PitchButton(label: "Posten", action: onDone).padding(.top, 8)
                     }
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
+                }
+            }
+        }
+        .preferredColorScheme(Theme.scheme)
+        .confirmationDialog("Medien hinzufügen", isPresented: $showSourceDialog, titleVisibility: .visible) {
+            Button("Fotos & Videos") { showPhotoPicker = true }
+            Button("Dateien") { showPhotoPicker = true }  // TODO: fileImporter für Dokumente
+            Button("Abbrechen", role: .cancel) { }
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedMedia, matching: .any(of: [.images, .videos]))
+        .onChange(of: selectedMedia) { _, item in
+            Task {
+                if let data = try? await item?.loadTransferable(type: Data.self),
+                   let img = UIImage(data: data) {
+                    await MainActor.run { mediaImage = img }
+                }
+            }
+        }
+        .sheet(isPresented: $showTagPeople) {
+            TagPeopleView(selected: $taggedPeople)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+// Personen markieren (Sheet) — Nutzer/Scouts/Coaches suchen & antippen
+struct TagPeopleView: View {
+    @Binding var selected: [String]
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    private let people: [(String, String, String)] = [
+        ("Jonas Weber", "Spieler · Köln", "soccerball"),
+        ("Mehmet Demir", "Coach · Düsseldorf", "flame.fill"),
+        ("Lena Groß", "Scout · NRW", "binoculars.fill"),
+        ("TSV Eller 04", "Verein · Bezirksliga", "trophy.fill"),
+        ("Tim Albers", "Spieler · Essen", "soccerball"),
+    ]
+    private var filtered: [(String, String, String)] {
+        query.isEmpty ? people : people.filter { $0.0.localizedCaseInsensitiveContains(query) }
+    }
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Text("MARKIEREN").font(.pitchHead(18)).kerning(0.5).foregroundStyle(Theme.text)
+                    Spacer()
+                    Button("Fertig") { dismiss() }
+                        .font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.accent)
+                }
+                .padding(.horizontal, 20).padding(.vertical, 16)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .bottom)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.textMuted)
+                    TextField("", text: $query, prompt: Text("Nutzer suchen…").foregroundColor(Theme.textFaint))
+                        .foregroundStyle(Theme.text).autocorrectionDisabled()
+                }
+                .padding(.horizontal, 14).frame(height: 44)
+                .background(Theme.surface).clipShape(Capsule())
+                .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+                .padding(.horizontal, 20).padding(.vertical, 12)
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(filtered, id: \.0) { p in
+                            let active = selected.contains(p.0)
+                            Button {
+                                withAnimation(.easeOut(duration: 0.12)) {
+                                    if active { selected.removeAll { $0 == p.0 } } else { selected.append(p.0) }
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Avatar(size: 42, name: p.0)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(p.0).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
+                                        Text(p.1).font(.system(size: 12)).foregroundStyle(Theme.textMuted)
+                                    }
+                                    Spacer()
+                                    Image(systemName: active ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 20)).foregroundStyle(active ? Theme.accent : Theme.line)
+                                }
+                                .padding(.horizontal, 20).padding(.vertical, 12)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
         }
@@ -551,7 +731,11 @@ struct ChatRow: Identifiable {
 private let demoChats: [ChatRow] = [
     .init(name: "Coach Demir", last: "Pitch angenommen — lass uns reden!", time: "09:14", icon: "flame.fill", unread: true),
     .init(name: "TSV Eller 04", last: "Wann hättest du Zeit für ein Probetraining?", time: "gestern", icon: "trophy.fill", unread: true),
+    .init(name: "Lena Groß", last: "Hab dich am Samstag spielen sehen — stark!", time: "Di", icon: "binoculars.fill", unread: true),
+    .init(name: "Jonas Weber", last: "Kommst du Freitag zum Training?", time: "Di", icon: "soccerball", unread: false),
     .init(name: "Leon Bäcker", last: "Stark, danke dir!", time: "Mo", icon: "soccerball", unread: false),
+    .init(name: "SV Düsseldorf 04", last: "Wir melden uns nächste Woche bei dir.", time: "So", icon: "trophy.fill", unread: false),
+    .init(name: "Marco Stein", last: "Brudi, der Doppelpack 🤝", time: "Sa", icon: "soccerball", unread: false),
 ]
 
 struct MessagesView: View {
@@ -565,7 +749,7 @@ struct MessagesView: View {
                     Text("NACHRICHTEN").font(.pitchHead(20)).kerning(1).foregroundStyle(Theme.text)
                     Spacer()
                     Button { showNewChat = true } label: {
-                        Image(systemName: "square.and.pencil").font(.system(size: 18)).foregroundStyle(Theme.text)
+                        Image(systemName: "magnifyingglass").font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.text)
                     }
                     .buttonStyle(.plain)
                 }
@@ -579,7 +763,7 @@ struct MessagesView: View {
                                 ChatView(person: PersonRef(name: chat.name, role: "", icon: chat.icon))
                             } label: {
                                 HStack(spacing: 12) {
-                                    Avatar(size: 48, systemName: chat.icon)
+                                    Avatar(size: 48, name: chat.name)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(chat.name).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
                                         Text(chat.last).font(.system(size: 13)).foregroundStyle(Theme.textMuted).lineLimit(1)
@@ -620,15 +804,43 @@ struct NotificationItem: Identifiable {
 }
 
 private let demoNotifs: [NotificationItem] = [
-    .init(type: .pitch,   senderName: "Coach Demir",  icon: "flame.fill",         detail: "",        time: "vor 3 Min"),
-    .init(type: .follow,  senderName: "Leon Bäcker",  icon: "soccerball",         detail: "",        time: "vor 1 Std"),
-    .init(type: .rating,  senderName: "Jonas Weber",  icon: "soccerball",         detail: "9.0",     time: "vor 2 Std"),
-    .init(type: .comment, senderName: "TSV Eller 04", icon: "trophy.fill",        detail: "Stark!",  time: "gestern"),
+    .init(type: .pitch,   senderName: "Coach Demir",     icon: "flame.fill",      detail: "",                  time: "vor 3 Min"),
+    .init(type: .pitch,   senderName: "Lena Groß",       icon: "binoculars.fill", detail: "",                  time: "vor 25 Min"),
+    .init(type: .follow,  senderName: "Leon Bäcker",     icon: "soccerball",      detail: "",                  time: "vor 1 Std"),
+    .init(type: .rating,  senderName: "Jonas Weber",     icon: "soccerball",      detail: "9.0",               time: "vor 2 Std"),
+    .init(type: .comment, senderName: "TSV Eller 04",    icon: "trophy.fill",     detail: "Genau sowas suchen wir.", time: "vor 3 Std"),
+    .init(type: .follow,  senderName: "Marco Stein",     icon: "soccerball",      detail: "",                  time: "vor 5 Std"),
+    .init(type: .pitch,   senderName: "SV Düsseldorf 04", icon: "trophy.fill",    detail: "",                  time: "gestern"),
+    .init(type: .rating,  senderName: "Tim Albers",      icon: "soccerball",      detail: "8.5",               time: "gestern"),
+    .init(type: .comment, senderName: "Coach Demir",     icon: "flame.fill",      detail: "Saubere Technik!",  time: "vor 2 Tagen"),
 ]
+
+// Giftgrüner Glitzer-Schimmer für Pitch-Mitteilungen
+private struct GlitterBackground: View {
+    @State private var phase: CGFloat = -1
+    var body: some View {
+        GeometryReader { geo in
+            Theme.accent.opacity(0.10)
+                .overlay(
+                    LinearGradient(colors: [.clear, Theme.accent.opacity(0.4), .clear],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .frame(width: geo.size.width * 0.45)
+                        .offset(x: phase * geo.size.width * 1.6)
+                )
+                .clipped()
+                .onAppear {
+                    withAnimation(.linear(duration: 2.2).repeatForever(autoreverses: false)) {
+                        phase = 1
+                    }
+                }
+        }
+    }
+}
 
 struct NotificationsView: View {
     @State private var pitchStates:  [UUID: Bool] = [:]   // true=angenommen, false=abgelehnt
-    @State private var followStates: [UUID: Bool] = [:]   // true=folge zurück
+    @State private var followStates: [UUID: Bool] = [:]   // true=folge zurück → vernetzt
+    @State private var showComments = false               // Kommentar/Bewertung → Beitrag
 
     var body: some View {
         NavigationStack {
@@ -657,20 +869,24 @@ struct NotificationsView: View {
         .toolbar(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(Theme.scheme)
+        .sheet(isPresented: $showComments) {
+            CommentsView()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     @ViewBuilder
     private func notifRow(_ n: NotificationItem) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                // Avatar mit Typ-Badge
-                ZStack(alignment: .bottomTrailing) {
-                    Avatar(size: 44, systemName: n.icon)
-                    typeBadge(n.type)
-                }
+        // Kompakte Zeile: Avatar · Text · Aktionen rechts daneben
+        HStack(alignment: .center, spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Avatar(size: 44, name: n.senderName)
+                typeBadge(n.type)
+            }
 
-                VStack(alignment: .leading, spacing: 3) {
-                    // Name — tippt man auf Profil
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
                     NavigationLink {
                         UserProfileView(person: PersonRef(name: n.senderName, role: roleForIcon(n.icon), icon: n.icon))
                     } label: {
@@ -679,106 +895,107 @@ struct NotificationsView: View {
                             .foregroundStyle(Theme.text)
                     }
                     .buttonStyle(.plain)
-
-                    // Beschreibung
-                    notifText(n)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.textMuted)
-
-                    Text(n.time)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textFaint)
+                    // Pitch-Kennzeichnung (Glitzer)
+                    if n.type == .pitch {
+                        HStack(spacing: 3) {
+                            Image(systemName: "sparkles").font(.system(size: 9, weight: .heavy))
+                            Text("PITCH").font(.system(size: 9, weight: .heavy)).kerning(0.5)
+                        }
+                        .foregroundStyle(Theme.accent)
+                    }
                 }
-                Spacer(minLength: 0)
+                notifText(n)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textMuted)
+                    .lineLimit(2)
+                Text(n.time).font(.system(size: 10)).foregroundStyle(Theme.textFaint)
             }
 
-            // Aktions-Buttons je nach Typ
-            switch n.type {
-            case .pitch:
-                pitchActions(n)
-            case .follow:
-                followAction(n)
-            case .comment, .rating:
-                // Kein Button — der Tap auf den Namen führt aufs Profil
-                EmptyView()
-            }
+            Spacer(minLength: 6)
+
+            rightActions(n)
         }
-    }
-
-    // Pitch-Aktionen: Ablehnen (✗) + Annehmen (✓)
-    @ViewBuilder
-    private func pitchActions(_ n: NotificationItem) -> some View {
-        if let accepted = pitchStates[n.id] {
-            // Ergebnis anzeigen
-            HStack(spacing: 6) {
-                Image(systemName: accepted ? "bolt.fill" : "xmark")
-                    .font(.system(size: 12, weight: .heavy))
-                    .foregroundStyle(accepted ? Theme.accent : Theme.textFaint)
-                Text(accepted ? "⚡ Pitch erfolgreich · Chat geöffnet" : "Abgelehnt")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(accepted ? Theme.accent : Theme.textFaint)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background((accepted ? Theme.accent : Theme.surfaceAlt).opacity(accepted ? 0.12 : 1))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-        } else {
-            HStack(spacing: 10) {
-                // Ablehnen
-                Button {
-                    withAnimation(.spring(duration: 0.2)) { pitchStates[n.id] = false }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .heavy))
-                        .foregroundStyle(Theme.danger)
-                        .frame(maxWidth: .infinity).frame(height: 40)
-                        .background(Theme.danger.opacity(0.1))
+        .padding(.horizontal, 4)
+        .background(
+            // Pitch-Zeilen bekommen einen giftgrünen Glitzer-Schimmer
+            Group {
+                if n.type == .pitch && pitchStates[n.id] == nil {
+                    GlitterBackground()
                         .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.rMd)
-                            .stroke(Theme.danger.opacity(0.3), lineWidth: 1))
                 }
-                .buttonStyle(.plain)
+            }
+        )
+    }
 
-                // Annehmen
-                Button {
-                    withAnimation(.spring(duration: 0.2)) {
-                        pitchStates[n.id] = true
-                        // TODO: Firestore: vernetzen + Chat-Nachricht "⚡ Pitch erfolgreich" anlegen
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark").font(.system(size: 13, weight: .heavy))
-                        Text("Annehmen").font(.system(size: 14, weight: .heavy))
-                    }
-                    .foregroundStyle(Theme.accentText)
-                    .frame(maxWidth: .infinity).frame(height: 40)
-                    .background(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+    // Aktionen rechts: kleine Kästchen — gleiche Form bei Pitch & Follow
+    @ViewBuilder
+    private func rightActions(_ n: NotificationItem) -> some View {
+        let person = PersonRef(name: n.senderName, role: roleForIcon(n.icon), icon: n.icon)
+        switch n.type {
+        case .pitch:
+            if let accepted = pitchStates[n.id] {
+                if accepted {
+                    // angenommen → vernetzt, Chat öffnen (gleiche Form wie Follow-Chat)
+                    chatBox(person)
+                } else {
+                    // abgelehnt → passiert nichts weiter
+                    Text("Abgelehnt").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textFaint)
                 }
-                .buttonStyle(.plain)
+            } else {
+                HStack(spacing: 8) {
+                    squareBtn("xmark", fg: Theme.danger, bg: Theme.danger.opacity(0.1), border: true) {
+                        withAnimation(.spring(duration: 0.2)) { pitchStates[n.id] = false }
+                    }
+                    squareBtn("checkmark", fg: Theme.accentText, bg: Theme.accent, border: false) {
+                        withAnimation(.spring(duration: 0.2)) { pitchStates[n.id] = true }
+                        // TODO: Firestore: vernetzen + Chat-Nachricht "⚡ Pitch erfolgreich"
+                    }
+                }
+            }
+        case .follow:
+            if followStates[n.id] == true {
+                // zurückgefolgt → vernetzt, Chat öffnen (gleiche Form wie Pitch-Chat)
+                chatBox(person)
+            } else {
+                squareBtn("plus", fg: Theme.accentText, bg: Theme.accent, border: false) {
+                    withAnimation(.spring(duration: 0.2)) { followStates[n.id] = true }
+                }
+            }
+        case .comment, .rating:
+            squareBtn("chevron.right", fg: Theme.text, bg: Theme.surfaceAlt, border: true) {
+                showComments = true
             }
         }
     }
 
-    // Follow-Aktion: Folgen / Folge ich (zurückfolgen — keine Vernetzung)
-    @ViewBuilder
-    private func followAction(_ n: NotificationItem) -> some View {
-        Button {
-            withAnimation(.spring(duration: 0.2)) {
-                followStates[n.id] = true
-            }
+    // Chat-Kästchen (NavigationLink) — nach Vernetzung, einheitlich für Pitch & Follow
+    private func chatBox(_ person: PersonRef) -> some View {
+        NavigationLink {
+            ChatView(person: person)
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: followStates[n.id] == true ? "checkmark" : "plus")
-                    .font(.system(size: 12, weight: .heavy))
-                Text(followStates[n.id] == true ? "Folge ich" : "Folgen")
-                    .font(.system(size: 13, weight: .heavy))
+            HStack(spacing: 5) {
+                Image(systemName: "bubble.left.fill").font(.system(size: 12, weight: .heavy))
+                Text("Vernetzt").font(.system(size: 12, weight: .heavy))
             }
-            .foregroundStyle(followStates[n.id] == true ? Theme.accent : Theme.accentText)
-            .padding(.horizontal, 16).padding(.vertical, 8)
-            .background(followStates[n.id] == true ? Theme.accent.opacity(0.12) : Theme.accent)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(
-                followStates[n.id] == true ? Theme.accent : Color.clear, lineWidth: 1.5))
+            .foregroundStyle(Theme.accent)
+            .frame(height: 34).padding(.horizontal, 12)
+            .background(Theme.accent.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.accent.opacity(0.4), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func squareBtn(_ icon: String, fg: Color, bg: Color, border: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundStyle(fg)
+                .frame(width: 34, height: 34)
+                .background(bg)
+                .clipShape(RoundedRectangle(cornerRadius: 9))
+                .overlay(RoundedRectangle(cornerRadius: 9)
+                    .stroke(border ? fg.opacity(0.3) : Color.clear, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -906,7 +1123,7 @@ struct SearchView: View {
                                 UserProfileView(person: PersonRef(name: r.name, role: r.role, icon: r.icon, sub: r.sub))
                             } label: {
                                 HStack(spacing: 12) {
-                                    Avatar(size: 46, systemName: r.icon)
+                                    Avatar(size: 46, name: r.name)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(r.name).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
                                         Text("\(r.role) · \(r.sub)").font(.system(size: 12)).foregroundStyle(Theme.textMuted).lineLimit(1)

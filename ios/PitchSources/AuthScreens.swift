@@ -293,7 +293,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 16) {
             stepTitle("Deine Pitchkarte", "So sehen dich andere. Alles später änderbar.")
             SectionLabel("Live-Vorschau")
-            PitchCard(name: name.isEmpty ? "Dein Name" : name, rating: nil, profileImage: profileImage, roleLabel: role)
+            PitchCard(name: name.isEmpty ? "Dein Name" : name, profileImage: profileImage, roleLabel: role)
             SectionLabel("Angaben")
             VStack(spacing: 8) {
                 // Foto-Upload
@@ -361,7 +361,7 @@ struct OnboardingView: View {
             Text("Fast geschafft!").font(.pitchHead(26)).foregroundStyle(Theme.text)
             Text("Dein Profil ist startklar. Willkommen bei Pitch.")
                 .font(.system(size: 14)).foregroundStyle(Theme.textMuted).multilineTextAlignment(.center)
-            PitchCard(name: name.isEmpty ? "Dein Name" : name, rating: nil, profileImage: profileImage, roleLabel: role).padding(.top, 4)
+            PitchCard(name: name.isEmpty ? "Dein Name" : name, profileImage: profileImage, roleLabel: role).padding(.top, 4)
             Button { accepted.toggle() } label: {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: accepted ? "checkmark.square.fill" : "square")

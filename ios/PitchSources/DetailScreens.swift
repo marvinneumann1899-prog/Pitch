@@ -70,8 +70,33 @@ struct UserProfileView: View {
                 BackHeader(title: person.name)
                 ScrollView {
                     VStack(spacing: 16) {
-                        PitchCard(name: person.name, rating: person.rating, roleLabel: cardRole)
+                        // Fremdprofil: nur Netzwerk + Pitches (kein "Folge ich")
+                        HStack(spacing: 0) {
+                            VStack(spacing: 3) {
+                                Text("34").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                Text("NETZWERK").font(.system(size: 9, weight: .heavy)).kerning(0.8)
+                                    .foregroundStyle(Theme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity)
+                            Rectangle().fill(Theme.line).frame(width: 1, height: 34)
+                            VStack(spacing: 3) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "bolt.fill").font(.system(size: 12, weight: .black)).foregroundStyle(Theme.accent)
+                                    Text("12").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                }
+                                Text("PITCHES").font(.system(size: 9, weight: .heavy)).kerning(0.8)
+                                    .foregroundStyle(Theme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .padding(.vertical, 16)
+                        .background(Theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+
+                        PitchCard(name: person.name, roleLabel: cardRole)
                         actionRow
+                        infoSection
                         beitraege
                         linkedSection
                     }
@@ -126,6 +151,20 @@ struct UserProfileView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            // Direkter Chat-Button (immer verfügbar)
+            NavigationLink {
+                ChatView(person: person)
+            } label: {
+                Image(systemName: "bubble.left.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 46, height: 46)
+                    .background(Theme.accent.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.accent.opacity(0.4), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -173,6 +212,20 @@ struct UserProfileView: View {
             Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textFaint)
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
+    }
+
+    private var infoSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("Info über mich")
+            Text("Ehrgeiziger \(person.role), der den nächsten Schritt sucht. Teamplayer, immer am Limit.")
+                .font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var beitraege: some View {
@@ -239,7 +292,7 @@ struct ChatView: View {
                         UserProfileView(person: PersonRef(name: person.name, role: roleForIcon(person.icon), icon: person.icon))
                     } label: {
                         HStack(spacing: 12) {
-                            Avatar(size: 36, systemName: person.icon)
+                            Avatar(size: 36, name: person.name)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(person.name).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
                                 Text(person.role.isEmpty ? "Profil ansehen" : person.role)
@@ -431,14 +484,21 @@ struct SettingsView: View {
 // MARK: - Profil bearbeiten
 
 struct EditProfileView: View {
+    var role: String = "Spieler"   // eigene Rolle (Demo: Spieler)
     @Environment(\.dismiss) private var dismiss
     @State private var name = "Marvin Neumann"
+    @State private var nummer = "10"
     @State private var position = "Innenverteidiger"
     @State private var verein = "SV Düsseldorf 04"
     @State private var liga = "Landesliga"
     @State private var location = "Düsseldorf"
+    @State private var bio = "Innenverteidiger mit Drang nach vorne. Suche den nächsten Schritt."
+    @State private var attributes: [String] = ["Schnelligkeit", "Zweikampf", "Kopfball"]
+    @State private var showAttrPicker = false
     @State private var photoItem: PhotosPickerItem? = nil
     @State private var profileImage: UIImage? = nil
+
+    private var roleHasAttributes: Bool { !attributesFor(role: role).isEmpty }
 
     var body: some View {
         ZStack {
@@ -476,10 +536,52 @@ struct EditProfileView: View {
                         }
 
                         field("Name", $name)
-                        field("Position", $position)
+                        if role == "Spieler" {
+                            field("Trikotnummer", $nummer)
+                            field("Position", $position)
+                        }
                         field("Aktueller Verein", $verein)
                         field("Aktuelle Liga", $liga)
                         field("Location", $location)
+
+                        // Bio
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Info über mich").font(.system(size: 11, weight: .bold)).kerning(0.5).foregroundStyle(Theme.textFaint)
+                            TextField("", text: $bio, axis: .vertical).lineLimit(2...5)
+                                .foregroundStyle(Theme.text).font(.system(size: 15, weight: .semibold))
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(Theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
+
+                        // Attribute (nur Spieler + Coach)
+                        if roleHasAttributes {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Attribute (max. 3)").font(.system(size: 11, weight: .bold)).kerning(0.5).foregroundStyle(Theme.textFaint)
+                                    Spacer()
+                                    Button("Bearbeiten") { showAttrPicker = true }
+                                        .font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.accent)
+                                }
+                                if attributes.isEmpty {
+                                    Text("Noch keine Attribute gewählt").font(.system(size: 13)).foregroundStyle(Theme.textMuted)
+                                } else {
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 8)], alignment: .leading, spacing: 8) {
+                                        ForEach(attributes, id: \.self) { attr in
+                                            Text(attr).font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.accent)
+                                                .padding(.horizontal, 10).padding(.vertical, 6).frame(maxWidth: .infinity)
+                                                .background(Theme.accent.opacity(0.12)).clipShape(Capsule())
+                                                .overlay(Capsule().stroke(Theme.accent.opacity(0.4), lineWidth: 1))
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 12)
+                            .background(Theme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
+                        }
 
                         PitchButton(label: "Speichern", systemImage: "checkmark") { dismiss() }
                             .padding(.top, 8)
@@ -490,6 +592,11 @@ struct EditProfileView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
+        .sheet(isPresented: $showAttrPicker) {
+            AttributePicker(selected: $attributes, role: role)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private func field(_ label: String, _ value: Binding<String>) -> some View {
@@ -561,7 +668,7 @@ struct PitchesView: View {
     private func pitchRow(_ p: PersonRef) -> some View {
         HStack(spacing: 12) {
             ZStack(alignment: .bottomTrailing) {
-                Avatar(size: 46, systemName: p.icon)
+                Avatar(size: 46, name: p.name)
                 Image(systemName: "bolt.fill").font(.system(size: 8, weight: .black))
                     .foregroundStyle(Theme.bg).frame(width: 16, height: 16)
                     .background(Theme.accent).clipShape(Circle())
@@ -606,7 +713,6 @@ struct PitchLimitView: View {
                                 }
                             }
                             .frame(height: 10)
-                            Text("Reset: Freitag 21:00 Uhr").font(.system(size: 12)).foregroundStyle(Theme.textFaint)
                         }
                         .padding(16).background(Theme.surface).clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
                         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
@@ -614,7 +720,7 @@ struct PitchLimitView: View {
                         // Erinnerung
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Erinnerung bei Reset").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.text)
+                                Text("Erinnerung").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.text)
                                 Text("Push, wenn neue Pitches verfügbar sind").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
                             }
                             Spacer()
@@ -725,7 +831,7 @@ struct FollowersView: View {
         HStack(spacing: 12) {
             NavigationLink { UserProfileView(person: p) } label: {
                 HStack(spacing: 12) {
-                    Avatar(size: 46, systemName: p.icon)
+                    Avatar(size: 46, name: p.name)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(p.name).font(.system(size: 15, weight: .heavy)).foregroundStyle(Theme.text)
                         Text("\(p.role) · \(p.sub)").font(.system(size: 12)).foregroundStyle(Theme.textMuted).lineLimit(1)
@@ -840,7 +946,7 @@ struct CommentsView: View {
                     VStack(spacing: 0) {
                         ForEach(comments) { c in
                             HStack(alignment: .top, spacing: 12) {
-                                Avatar(size: 38, systemName: c.icon)
+                                Avatar(size: 38, name: c.name)
                                 VStack(alignment: .leading, spacing: 3) {
                                     HStack(spacing: 6) {
                                         Text(c.name).font(.system(size: 13, weight: .heavy)).foregroundStyle(Theme.text)
@@ -1011,6 +1117,66 @@ struct SettingDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
                     .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
                     .padding(.horizontal, 20).padding(.top, 16)
+                }
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .preferredColorScheme(Theme.scheme)
+    }
+}
+
+// MARK: - Exposé (persönliche Highlights in der Cloud)
+
+struct ExposeView: View {
+    @State private var items = ["Highlight-Reel 23/24", "Freistoßtor vs. Eller", "Sprinttest 30m"]
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                BackHeader(title: "Meine Highlights")
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "lock.fill").font(.system(size: 14)).foregroundStyle(Theme.accent)
+                            Text("Sichtbar nur für dich und Kontakte mit erfolgreichem Pitch.")
+                                .font(.system(size: 12)).foregroundStyle(Theme.textMuted)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(14).background(Theme.surface).clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+
+                        Button { } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "arrow.up.circle.fill").font(.system(size: 18, weight: .semibold))
+                                Text("Datei oder Clip hochladen").font(.system(size: 15, weight: .heavy))
+                            }
+                            .foregroundStyle(Theme.accentText)
+                            .frame(maxWidth: .infinity).frame(height: 50)
+                            .background(Theme.accent).clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                        }
+                        .buttonStyle(.plain)
+
+                        SectionLabel("Hochgeladen")
+                        VStack(spacing: 0) {
+                            ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
+                                HStack(spacing: 12) {
+                                    Image(systemName: "play.rectangle.fill")
+                                        .font(.system(size: 18)).foregroundStyle(Theme.accent).frame(width: 30)
+                                    Text(item).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.text)
+                                    Spacer()
+                                    Image(systemName: "ellipsis").font(.system(size: 15)).foregroundStyle(Theme.textFaint)
+                                }
+                                .padding(.horizontal, 14).padding(.vertical, 14)
+                                if idx < items.count - 1 {
+                                    Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 56)
+                                }
+                            }
+                        }
+                        .background(Theme.surface).clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+                    }
+                    .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
                 }
             }
         }

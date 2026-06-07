@@ -61,14 +61,52 @@ struct Chip: View {
 struct Avatar: View {
     var size: CGFloat = 44
     var systemName: String = "person.fill"
+    var name: String? = nil   // gesetzt → farbiger Kreis mit Initialen (Profilbild-Optik)
+
+    // Avatar-Farbpalette (kräftig, gut unterscheidbar)
+    private static let palette: [UInt] = [
+        0x2BD576, 0x3A8DFF, 0xFF6B4D, 0xB46BFF, 0xFFB23E,
+        0xFF4D8D, 0x18C2C2, 0xC6FF3A, 0x7A5BFF, 0xFF8A3D
+    ]
+
+    private var initials: String {
+        guard let name, !name.isEmpty else { return "" }
+        let parts = name.split(separator: " ")
+        if parts.count >= 2 {
+            return String(parts[0].prefix(1) + parts[1].prefix(1)).uppercased()
+        }
+        return String(name.prefix(2)).uppercased()
+    }
+
+    private var color: Color {
+        guard let name else { return Theme.surfaceAlt }
+        let idx = abs(name.hashValue) % Self.palette.count
+        return Color(hex: Self.palette[idx])
+    }
+
     var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: size * 0.42, weight: .semibold))
-            .foregroundStyle(Theme.textMuted)
-            .frame(width: size, height: size)
-            .background(Theme.surfaceAlt)
-            .clipShape(Circle())
-            .overlay(Circle().stroke(Theme.line, lineWidth: 1))
+        Group {
+            if let name, !name.isEmpty {
+                Text(initials)
+                    .font(.system(size: size * 0.38, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: size, height: size)
+                    .background(
+                        LinearGradient(colors: [color, color.opacity(0.72)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+            } else {
+                Image(systemName: systemName)
+                    .font(.system(size: size * 0.42, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .frame(width: size, height: size)
+                    .background(Theme.surfaceAlt)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Theme.line, lineWidth: 1))
+            }
+        }
     }
 }
 
