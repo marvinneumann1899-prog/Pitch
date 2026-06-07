@@ -98,13 +98,16 @@ struct UserProfileView: View {
             .buttonStyle(.plain)
 
             if pitchSent {
-                // Pitch gesendet → Nachricht als eigener Button (kein Morph)
-                NavigationLink {
-                    ChatView(person: person)
-                } label: {
-                    actionLabel("Nachricht", icon: "bubble.left.fill", filled: true)
+                // Pitch gesendet → wartet auf Annahme. Chat öffnet erst, wenn er annimmt.
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.fill").font(.system(size: 12, weight: .black))
+                    Text("Pitch gesendet").font(.system(size: 14, weight: .heavy))
                 }
-                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textMuted)
+                .frame(maxWidth: .infinity).frame(height: 46)
+                .background(Theme.surfaceAlt)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
             } else if canPitch {
                 Button {
                     withAnimation(.spring(duration: 0.25)) { pitchSent = true; showToast = true }
