@@ -137,6 +137,8 @@ typealias SignUpView = AuthView
 struct OnboardingView: View {
     var onDone: () -> Void = {}
 
+    @AppStorage("appRole") private var appRole = "Spieler"
+
     @State private var step = 0
     @State private var role = ""
     @State private var goals: Set<String> = []
@@ -144,8 +146,13 @@ struct OnboardingView: View {
     @State private var accepted = false
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var profileImage: UIImage? = nil
+    // schlanke Felder für Coach / Scout / Verein
+    @State private var club = ""
+    @State private var location = ""
+    @State private var bio = ""
 
     private let totalSteps = 4
+    private var isPlayer: Bool { role == "Spieler" }
 
     var body: some View {
         ZStack {
@@ -203,6 +210,7 @@ struct OnboardingView: View {
             roleCardWide("Spieler", "soccerball")
             roleCardWide("Trainer", "flame.fill")
             roleCardWide("Scout", "binoculars.fill")
+            roleCardWide("Verein", "shield.fill")
         }
     }
 
@@ -255,6 +263,7 @@ struct OnboardingView: View {
         case "Spieler": return ["Verein finden", "Stipendium", "Netzwerk aufbauen", "Mich zeigen", "Einfach mal abchecken"]
         case "Trainer": return ["Spieler finden", "Verein finden", "Netzwerk aufbauen"]
         case "Scout": return ["Talente entdecken", "Netzwerk aufbauen"]
+        case "Verein": return ["Spieler finden", "Verein präsentieren", "Netzwerk aufbauen"]
         default: return ["Verein finden", "Netzwerk aufbauen", "Mich zeigen"]
         }
     }
@@ -289,63 +298,103 @@ struct OnboardingView: View {
     }
 
     // Schritt 3 — Profil (rollenspezifisch)
+    @ViewBuilder
     private var profileStep: some View {
+        if isPlayer { playerProfileStep } else { actorProfileStep }
+    }
+
+    // Spieler — Pitchkarte
+    private var playerProfileStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             stepTitle("Deine Pitchkarte", "So sehen dich andere. Alles später änderbar.")
             SectionLabel("Live-Vorschau")
             PitchCard(name: name.isEmpty ? "Dein Name" : name, profileImage: profileImage, roleLabel: role)
             SectionLabel("Angaben")
             VStack(spacing: 8) {
-                // Foto-Upload
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    HStack(spacing: 12) {
-                        Image(systemName: profileImage == nil ? "camera.fill" : "checkmark.circle.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.accentText)
-                            .frame(width: 36, height: 36)
-                            .background(Theme.accent)
-                            .clipShape(Circle())
-                        Text(profileImage == nil ? "Profilbild hinzufügen" : "Bild ausgewählt ✓")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(profileImage == nil ? Theme.text : Theme.accent)
-                        Spacer()
-                        Image(systemName: "chevron.right").foregroundStyle(Theme.textFaint)
-                    }
-                    .padding(14)
-                    .background(Theme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(
-                        profileImage == nil ? Theme.line : Theme.accent, lineWidth: profileImage == nil ? 1 : 1.5))
-                }
-                .onChange(of: selectedPhoto) { _, item in
-                    Task {
-                        if let data = try? await item?.loadTransferable(type: Data.self),
-                           let img = UIImage(data: data) {
-                            await MainActor.run { profileImage = img }
-                        }
-                    }
-                }
-
+                photoUpload
                 labeledField("Name", value: $name)
+                staticField("Alter", "23")
+                staticField("Position", "Innenverteidiger")
+                staticField("Location", "Düsseldorf")
+                staticField("Aktueller Verein", "SV Düsseldorf 04")
+                staticField("Aktuelle Liga", "Landesliga")
+            }
+        }
+    }
 
-                if role == "Spieler" {
-                    staticField("Alter", "23")
-                    staticField("Position", "Innenverteidiger")
-                    staticField("Location", "Düsseldorf")
-                    staticField("Aktueller Verein", "SV Düsseldorf 04")
-                    staticField("Aktuelle Liga", "Landesliga")
-                } else if role == "Trainer" {
-                    staticField("Alter", "34")
-                    staticField("Erfahrung", "8 Jahre")
-                    staticField("Aktuelle Liga", "Kreisliga")
-                    staticField("Location", "Düsseldorf")
-                    staticField("Aktueller Verein", "SV Düsseldorf 04")
-                    staticField("Favorisierte Aufstellung", "4-3-3")
-                } else if role == "Scout" {
-                    staticField("Erfahrung", "5 Jahre")
-                    staticField("Location", "Düsseldorf")
-                    staticField("Organisation / Verein", "FC Beispiel")
-                    staticField("Fokus-Liga", "Landesliga / Oberliga")
+    // Coach / Scout / Verein — schlankes Profil, keine Pitchkarte
+    private var actorProfileStep: some View {
+        let isClub = role == "Verein"
+        return VStack(alignment: .leading, spacing: 16) {
+            stepTitle(isClub ? "Euer Vereinsprofil" : "Dein Profil",
+                      "Schlicht halten — Name, Details, kurze Beschreibung. Später änderbar.")
+            SectionLabel("Live-Vorschau")
+            ActorCard(name: name.isEmpty ? (isClub ? "Vereinsname" : "Dein Name") : name,
+                      roleLabel: role, profileImage: profileImage,
+                      fields: previewFields(isClub: isClub),
+                      bio: bio)
+            SectionLabel("Angaben")
+            VStack(spacing: 8) {
+                photoUpload
+                labeledField(isClub ? "Vereinsname" : "Name", value: $name)
+                if !isClub {
+                    labeledField("Verein (oder leer lassen)", value: $club)
+                }
+                labeledField("Location", value: $location)
+                // Beschreibung
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isClub ? "Vereinsbeschreibung" : "Kurzbeschreibung")
+                        .font(.system(size: 11, weight: .bold)).kerning(0.5).foregroundStyle(Theme.textFaint)
+                    TextField("", text: $bio, axis: .vertical).lineLimit(2...4)
+                        .foregroundStyle(Theme.text).font(.system(size: 15, weight: .semibold))
+                }
+                .padding(.horizontal, 16).padding(.vertical, 8)
+                .background(Theme.surface).clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
+            }
+        }
+    }
+
+    // Vorschau-Felder aus den Eingaben (fällt auf Defaults zurück, solange leer)
+    private func previewFields(isClub: Bool) -> [PitchField] {
+        var f: [PitchField] = []
+        if isClub {
+            f.append(.init(icon: "trophy.fill", label: "Liga", value: "Bezirksliga"))
+            f.append(.init(icon: "mappin.and.ellipse", label: "Location", value: location.isEmpty ? "—" : location))
+        } else {
+            f.append(.init(icon: "shield.fill", label: "Verein", value: club.isEmpty ? "Vereinslos" : club))
+            f.append(.init(icon: "mappin.and.ellipse", label: "Location", value: location.isEmpty ? "—" : location))
+        }
+        return f
+    }
+
+    // Foto-Upload (geteilt zwischen den Rollen)
+    private var photoUpload: some View {
+        PhotosPicker(selection: $selectedPhoto, matching: .images) {
+            HStack(spacing: 12) {
+                Image(systemName: profileImage == nil ? "camera.fill" : "checkmark.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.accentText)
+                    .frame(width: 36, height: 36)
+                    .background(Theme.accent)
+                    .clipShape(Circle())
+                Text(profileImage == nil ? "Profilbild hinzufügen" : "Bild ausgewählt ✓")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(profileImage == nil ? Theme.text : Theme.accent)
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(Theme.textFaint)
+            }
+            .padding(14)
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+            .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(
+                profileImage == nil ? Theme.line : Theme.accent, lineWidth: profileImage == nil ? 1 : 1.5))
+        }
+        .onChange(of: selectedPhoto) { _, item in
+            Task {
+                if let data = try? await item?.loadTransferable(type: Data.self),
+                   let img = UIImage(data: data) {
+                    await MainActor.run { profileImage = img }
                 }
             }
         }
@@ -361,7 +410,13 @@ struct OnboardingView: View {
             Text("Fast geschafft!").font(.pitchHead(26)).foregroundStyle(Theme.text)
             Text("Dein Profil ist startklar. Willkommen bei Pitch.")
                 .font(.system(size: 14)).foregroundStyle(Theme.textMuted).multilineTextAlignment(.center)
-            PitchCard(name: name.isEmpty ? "Dein Name" : name, profileImage: profileImage, roleLabel: role).padding(.top, 4)
+            if isPlayer {
+                PitchCard(name: name.isEmpty ? "Dein Name" : name, profileImage: profileImage, roleLabel: role).padding(.top, 4)
+            } else {
+                ActorCard(name: name.isEmpty ? (role == "Verein" ? "Vereinsname" : "Dein Name") : name,
+                          roleLabel: role, profileImage: profileImage,
+                          fields: previewFields(isClub: role == "Verein"), bio: bio).padding(.top, 4)
+            }
             Button { accepted.toggle() } label: {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: accepted ? "checkmark.square.fill" : "square")
@@ -396,7 +451,10 @@ struct OnboardingView: View {
 
     private func advance() {
         if step < totalSteps - 1 { withAnimation(.easeInOut(duration: 0.2)) { step += 1 } }
-        else { onDone() }
+        else {
+            appRole = role.isEmpty ? "Spieler" : role   // Rolle merken → App rendert rollenabhängig
+            onDone()
+        }
     }
 
     // Helpers

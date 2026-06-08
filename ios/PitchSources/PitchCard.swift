@@ -221,6 +221,84 @@ struct PitchCard: View {
     }
 }
 
+// Schlichtes Akteur-Profil für Coach / Scout / Verein.
+// Kein Trading-Card-Look (keine Ecken-Akzente), keine Attribute, keine Trikotnummer.
+struct ActorCard: View {
+    var name: String = "Name"
+    var roleLabel: String = "Coach"        // "Trainer"/"Coach", "Scout", "Verein"
+    var profileImage: UIImage? = nil
+    var fields: [PitchField]? = nil
+    var bio: String = ""
+
+    private var resolvedFields: [PitchField] { fields ?? defaultFields(for: roleLabel) }
+    private var roleIcon: String {
+        switch roleLabel {
+        case "Verein", "Vereinsverantwortlicher": return "shield.fill"
+        case "Scout":                             return "binoculars.fill"
+        default:                                  return "flame.fill"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                ZStack {
+                    if let img = profileImage {
+                        Image(uiImage: img).resizable().scaledToFill()
+                    } else {
+                        Theme.surfaceAlt
+                        Image(systemName: roleIcon).font(.system(size: 24)).foregroundStyle(Theme.accent.opacity(0.8))
+                    }
+                }
+                .frame(width: 64, height: 64).clipShape(Circle())
+                .overlay(Circle().stroke(profileImage != nil ? Theme.accent : Theme.line, lineWidth: 1))
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(name).font(.pitchHead(20)).foregroundStyle(Theme.text).lineLimit(2)
+                    Text(roleLabel.uppercased())
+                        .font(.system(size: 11, weight: .heavy)).kerning(1)
+                        .foregroundStyle(Theme.accentText)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Theme.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.rSm))
+                }
+                Spacer(minLength: 0)
+            }
+
+            if !bio.isEmpty {
+                Text(bio).font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Rectangle().fill(Theme.line).frame(height: 1)
+
+            VStack(spacing: 12) {
+                ForEach(resolvedFields) { f in
+                    HStack(spacing: 0) {
+                        Image(systemName: f.icon)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 26, alignment: .leading)
+                        Text(f.label)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.textMuted)
+                            .frame(width: 130, alignment: .leading)
+                        Text(f.value)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Theme.text)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .lineLimit(1)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+    }
+}
+
 // Attribut-Auswahl (Sheet) — Tags an/abwählen, max. 3, rollenabhängig
 struct AttributePicker: View {
     @Binding var selected: [String]

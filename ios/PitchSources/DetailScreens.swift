@@ -65,6 +65,9 @@ struct UserProfileView: View {
 
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
+    // Reiches Demo-Profil (falls die Person im Verzeichnis steht)
+    private var demo: DemoProfile? { demoProfile(for: person.name) }
+
     // PitchCard kennt Trainer/Scout/Spieler — Rollen mappen
     private var cardRole: String {
         switch person.role {
@@ -92,14 +95,14 @@ struct UserProfileView: View {
                         // Fremdprofil: Netzwerk (Zwei-Wege-Kontakte) + Follower (Content)
                         HStack(spacing: 0) {
                             VStack(spacing: 3) {
-                                Text("34").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                Text("\(demo?.network ?? 34)").font(.pitchHead(20)).foregroundStyle(Theme.text)
                                 Text("NETZWERK").font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
                             }
                             .frame(maxWidth: .infinity)
                             Rectangle().fill(Theme.line).frame(width: 1, height: 34)
                             VStack(spacing: 3) {
-                                Text("248").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                Text("\(demo?.followers ?? 248)").font(.pitchHead(20)).foregroundStyle(Theme.text)
                                 Text("FOLLOWER").font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
                             }
@@ -110,11 +113,20 @@ struct UserProfileView: View {
                         .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
                         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
 
-                        PitchCard(name: person.name, roleLabel: cardRole)
-                        actionRow
-                        infoSection
-                        beitraege
-                        linkedSection
+                        if person.role == "Spieler" {
+                            PitchCard(name: person.name, fields: demo?.fields, roleLabel: cardRole,
+                                      jerseyNumber: demo?.jersey ?? "10",
+                                      attributes: demo?.attributes ?? ["Schnelligkeit","Zweikampf","Kopfball"])
+                            actionRow
+                            infoSection
+                            beitraege
+                            linkedSection      // Fupa/Fußball.de nur bei Spielern
+                        } else {
+                            ActorCard(name: person.name, roleLabel: cardRole,
+                                      fields: demo?.fields, bio: infoText)
+                            actionRow
+                            beitraege
+                        }
                     }
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
                 }
@@ -245,6 +257,7 @@ struct UserProfileView: View {
     }
 
     private var infoText: String {
+        if let bio = demo?.bio { return bio }
         switch person.role {
         case "Verein", "Vereinsverantwortlicher":
             return "Ambitionierter Verein mit klarer Perspektive. Wir suchen Spieler, die den nächsten Schritt gehen wollen."
@@ -274,19 +287,56 @@ struct UserProfileView: View {
     private var beitraege: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Beiträge")
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                ForEach(0..<6, id: \.self) { i in
-                    ZStack {
-                        Theme.surfaceAlt
-                        Image(systemName: postIcons[i % postIcons.count])
-                            .font(.system(size: 28)).foregroundStyle(Theme.textFaint)
+            // Echte Demo-Posts als Teaser (falls vorhanden), sonst Platzhalter-Raster
+            if let posts = demo?.posts, !posts.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(posts) { postTeaser($0) }
+                }
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                    ForEach(0..<6, id: \.self) { i in
+                        ZStack {
+                            Theme.surfaceAlt
+                            Image(systemName: postIcons[i % postIcons.count])
+                                .font(.system(size: 28)).foregroundStyle(Theme.textFaint)
+                        }
+                        .aspectRatio(1, contentMode: .fill)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
                     }
-                    .aspectRatio(1, contentMode: .fill)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func postTeaser(_ p: DemoPost) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Theme.surfaceAlt
+                Image(systemName: p.icon).font(.system(size: 22)).foregroundStyle(Theme.textFaint)
+                Image(systemName: "play.fill").font(.system(size: 12)).foregroundStyle(Theme.text.opacity(0.8))
+                    .padding(6).background(Color.black.opacity(0.5)).clipShape(Circle())
+            }
+            .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Chip(label: p.category)
+                    if let r = p.rating {
+                        HStack(spacing: 3) {
+                            PitchMark(fg: Theme.accent).frame(width: 10, height: 10)
+                            Text(r).font(.system(size: 11, weight: .black)).foregroundStyle(Theme.accent)
+                        }
+                    }
+                    Spacer()
+                    Text(p.time).font(.system(size: 10)).foregroundStyle(Theme.textFaint)
+                }
+                Text(p.caption).font(.system(size: 13)).foregroundStyle(Theme.text).lineLimit(2)
+            }
+        }
+        .padding(10)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
     }
 
     private var toast: some View {

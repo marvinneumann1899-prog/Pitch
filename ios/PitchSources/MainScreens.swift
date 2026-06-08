@@ -24,8 +24,8 @@ private let demoPosts: [FeedPost] = [
     .init(user: "TSV Eller 04", role: "Vereinsverantwortlicher", time: "vor 5 Std", category: "Erfolg",
           rating: nil, caption: "Aufstieg in die Bezirksliga klargemacht! Wir suchen Verstärkung.",
           icon: "trophy.fill", reason: "Dein Kontakt hat das bewertet"),
-    .init(user: "Coach Demir", role: "Coach", time: "gestern", category: "Highlight",
-          rating: nil, caption: "Pressing-Drill aus dem Training. Erst 3 Bewertungen.",
+    .init(user: "Mehmet Demir", role: "Coach", time: "gestern", category: "Highlight",
+          rating: nil, caption: "Pressing-Drill aus dem Training. Intensität war top.",
           icon: "flame.fill", reason: "Weil du Fußball folgst"),
     .init(user: "Jonas Weber", role: "Spieler", time: "vor 1 Std", category: "Highlight",
           rating: "9.3", caption: "Solo über das halbe Feld und eiskalt abgeschlossen. 🔥",
@@ -415,6 +415,10 @@ struct PostDetailView: View {
 struct ProfileView: View {
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
+    @AppStorage("appRole") private var appRole = "Spieler"
+    private var isPlayer: Bool { appRole == "Spieler" }
+    private var ownName: String { appRole == "Verein" ? "TSV Beispiel 04" : "Marvin Neumann" }
+
     @State private var showEdit = false
     @State private var showAttrPicker = false
     @State private var attributes: [String] = ["Schnelligkeit", "Zweikampf", "Kopfball"]
@@ -489,22 +493,28 @@ struct ProfileView: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
                     .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
 
-                    PitchCard(roleLabel: "Spieler", attributes: attributes, onAddAttribute: { showAttrPicker = true })
+                    if isPlayer {
+                        PitchCard(roleLabel: "Spieler", attributes: attributes, onAddAttribute: { showAttrPicker = true })
+                    } else {
+                        ActorCard(name: ownName, roleLabel: appRole, bio: bio)
+                    }
 
                     PitchButton(label: "Profil bearbeiten", variant: .ghost, systemImage: "pencil") { showEdit = true }
 
-                    // Info über mich (Bio)
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionLabel("Info über mich")
-                        Text(bio)
-                            .font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(14)
-                            .background(Theme.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
-                            .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+                    // Info über mich (Bio) — bei Akteuren steckt die Bio schon in der ActorCard
+                    if isPlayer {
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel("Info über mich")
+                            Text(bio)
+                                .font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14)
+                                .background(Theme.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
+                                .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     // Deine Beiträge
                     VStack(alignment: .leading, spacing: 10) {
@@ -523,6 +533,8 @@ struct ProfileView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                    // Exposé + Profil-Verknüpfung sind Spieler-Features (Scouting)
+                    if isPlayer {
                     // Cloud-Link zu persönlichen Highlights (Exposé)
                     NavigationLink { ExposeView() } label: {
                         HStack(spacing: 12) {
@@ -572,10 +584,11 @@ struct ProfileView: View {
                         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                    } // Ende Spieler-Features
                 }
                 .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
             }
-            .navigationDestination(isPresented: $showEdit) { EditProfileView() }
+            .navigationDestination(isPresented: $showEdit) { EditProfileView(role: appRole) }
         }
         .toolbar(.hidden, for: .navigationBar)
         }

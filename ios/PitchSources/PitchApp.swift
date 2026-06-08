@@ -101,4 +101,19 @@ struct PitchTabBar: View {
     }
 }
 
+// Debug: Fremdprofil je Rolle per Launch-Argument -dbgRole <Spieler|Coach|Scout|Verein>
+struct DebugProfileHost: View {
+    var body: some View {
+        let r = UserDefaults.standard.string(forKey: "dbgRole") ?? "Spieler"
+        let icon: String = ["Spieler": "soccerball", "Coach": "flame.fill",
+                            "Scout": "binoculars.fill", "Verein": "trophy.fill"][r] ?? "soccerball"
+        let name: String = ["Spieler": "Leon Bäcker", "Coach": "Mehmet Demir",
+                            "Scout": "Lena Groß", "Verein": "TSV Eller 04"][r] ?? "Leon Bäcker"
+        NavigationStack {
+            UserProfileView(person: PersonRef(name: name, role: r, icon: icon, sub: ""))
+        }
+        .preferredColorScheme(Theme.scheme)
+    }
+}
+
 #Preview { RootView() }

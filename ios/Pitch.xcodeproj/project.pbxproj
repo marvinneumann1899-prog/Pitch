@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		01E420B977C38124EFE5EE81 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE0901C67035CEFC9A7CCC4 /* Components.swift */; };
 		2597A6421D61C3E2812ABDA4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21478C39E69DB5F5B04FD965 /* Theme.swift */; };
+		35563E6B19BC0D32889526D0 /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3DB34D188FAD1409E0F9B3C /* DemoData.swift */; };
 		38831B3F5970D7A7FB1E1BB2 /* PitchCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF5E8889BEF16F346CF5AAA2 /* PitchCard.swift */; };
 		4E2EF4A93DC255460B6ED88E /* DetailScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12207FD45ABA872FE43C7159 /* DetailScreens.swift */; };
 		571EB8A743A4D1BFD26D7792 /* PitchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2885AE3FBEC233FAFC9942 /* PitchApp.swift */; };
@@ -23,6 +24,7 @@
 		63E3A1B17C57AD8E08853FE7 /* Pitch.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Pitch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9D2885AE3FBEC233FAFC9942 /* PitchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchApp.swift; sourceTree = "<group>"; };
 		CBE0901C67035CEFC9A7CCC4 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		D3DB34D188FAD1409E0F9B3C /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		DF5E8889BEF16F346CF5AAA2 /* PitchCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchCard.swift; sourceTree = "<group>"; };
 		FB0053A8E19D62D3574EFD82 /* MainScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainScreens.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -49,6 +51,7 @@
 			children = (
 				261E2980D19C3529B794C539 /* AuthScreens.swift */,
 				CBE0901C67035CEFC9A7CCC4 /* Components.swift */,
+				D3DB34D188FAD1409E0F9B3C /* DemoData.swift */,
 				12207FD45ABA872FE43C7159 /* DetailScreens.swift */,
 				FB0053A8E19D62D3574EFD82 /* MainScreens.swift */,
 				9D2885AE3FBEC233FAFC9942 /* PitchApp.swift */,
@@ -119,6 +122,7 @@
 			files = (
 				9EB1358D583928C43B6FAAB5 /* AuthScreens.swift in Sources */,
 				01E420B977C38124EFE5EE81 /* Components.swift in Sources */,
+				35563E6B19BC0D32889526D0 /* DemoData.swift in Sources */,
 				4E2EF4A93DC255460B6ED88E /* DetailScreens.swift in Sources */,
 				6C07630482D2E4447B6898FD /* MainScreens.swift in Sources */,
 				571EB8A743A4D1BFD26D7792 /* PitchApp.swift in Sources */,
