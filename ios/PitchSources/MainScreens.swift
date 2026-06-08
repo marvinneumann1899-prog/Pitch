@@ -86,7 +86,6 @@ private struct PostCard: View {
     @State private var ratingActive = false
     @State private var ratingValue: Double = 8.0
     @State private var following = false
-    @State private var pitched = false
     @State private var showComments = false
 
     var body: some View {
@@ -212,8 +211,8 @@ private struct PostCard: View {
 
             Text(post.caption).font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
 
-            // Aktionsleiste: [Bewerten] [💬 12]          [⚡ PITCH]
-            HStack(spacing: 10) {
+            // Aktionsleiste: [Bewerten] [💬 12]   (Pitch lebt auf dem Profil)
+            HStack(spacing: 16) {
                 // Bewerten — PitchMark-Logo, gedrückt halten + wischen = Regler
                 PitchMark(fg: Theme.accentText)
                     .padding(9)
@@ -249,26 +248,6 @@ private struct PostCard: View {
                 .opacity(ratingActive ? 0 : 1)
 
                 Spacer()
-
-                // Pitch-Button rechts
-                Button {
-                    withAnimation(.spring(duration: 0.25)) { pitched.toggle() }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundStyle(pitched ? Theme.accent : Theme.accentText)
-                        Text("PITCH")
-                            .font(.system(size: 12, weight: .heavy)).kerning(0.5)
-                            .foregroundStyle(pitched ? Theme.accent : Theme.accentText)
-                    }
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(pitched ? Theme.accent.opacity(0.15) : Theme.accent)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(pitched ? Theme.accent : Color.clear, lineWidth: 1.5))
-                }
-                .buttonStyle(.plain)
-                .opacity(ratingActive ? 0 : 1)
             }
             .padding(.top, 10)
             .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .top)
@@ -317,6 +296,117 @@ private struct RatingBar: View {
                 .fixedSize()
         }
         .frame(width: w, height: barH, alignment: .bottom)
+    }
+}
+
+// MARK: - Beitrag-Detail (von Mitteilungen: Kommentar/Bewertung öffnet den Post)
+
+struct PostDetailView: View {
+    let post: FeedPost
+    var openComments: Bool = false
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft = ""
+    @State private var comments: [CommentItem] = [
+        .init(name: "Coach Demir",  icon: "flame.fill",  text: "Saubere Technik! Wann kommst du mal vorbei?", time: "2 Std"),
+        .init(name: "TSV Eller 04", icon: "trophy.fill", text: "Genau sowas suchen wir gerade.",            time: "1 Std"),
+        .init(name: "Jonas Weber",  icon: "soccerball",  text: "Übelster Freistoß, Hut ab.",                time: "34 Min"),
+    ]
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack(spacing: 14) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.text)
+                    }
+                    Text("Beitrag").font(.pitchHead(18)).kerning(0.5).foregroundStyle(Theme.text)
+                    Spacer()
+                }
+                .padding(.horizontal, 20).padding(.vertical, 14)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .bottom)
+
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            // Autor
+                            HStack(spacing: 10) {
+                                Avatar(size: 38, name: post.user)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(post.user).font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.text)
+                                    Text("\(post.role) · \(post.time)").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
+                                }
+                                Spacer()
+                                Chip(label: post.category)
+                            }
+
+                            // Medien
+                            ZStack {
+                                Theme.surfaceAlt
+                                Image(systemName: post.icon).font(.system(size: 56)).foregroundStyle(Theme.textFaint.opacity(0.6))
+                                Circle().fill(Color.black.opacity(0.55)).frame(width: 56, height: 56)
+                                    .overlay(Circle().stroke(Theme.line, lineWidth: 1))
+                                    .overlay(Image(systemName: "play.fill").foregroundStyle(Theme.text).font(.system(size: 18)))
+                            }
+                            .frame(height: 300)
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+
+                            Text(post.caption).font(.system(size: 14)).foregroundStyle(Theme.text).lineSpacing(4)
+
+                            Rectangle().fill(Theme.line).frame(height: 1).padding(.vertical, 2)
+
+                            Text("Kommentare").font(.pitchHead(16)).foregroundStyle(Theme.text).id("comments")
+
+                            ForEach(comments) { c in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Avatar(size: 38, name: c.name)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack(spacing: 6) {
+                                            Text(c.name).font(.system(size: 13, weight: .heavy)).foregroundStyle(Theme.text)
+                                            Text(c.time).font(.system(size: 11)).foregroundStyle(Theme.textFaint)
+                                        }
+                                        Text(c.text).font(.system(size: 14)).foregroundStyle(Theme.text).lineSpacing(2)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        }
+                        .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+                    }
+                    .onAppear {
+                        guard openComments else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            withAnimation { proxy.scrollTo("comments", anchor: .top) }
+                        }
+                    }
+                }
+
+                // Eingabe
+                HStack(spacing: 10) {
+                    TextField("", text: $draft, prompt: Text("Kommentieren…").foregroundColor(Theme.textFaint))
+                        .foregroundStyle(Theme.text)
+                        .padding(.horizontal, 16).frame(height: 44)
+                        .background(Theme.surface).clipShape(Capsule())
+                        .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+                    Button {
+                        let t = draft.trimmingCharacters(in: .whitespaces)
+                        guard !t.isEmpty else { return }
+                        comments.append(.init(name: "Marvin Neumann", icon: "soccerball", text: t, time: "jetzt")); draft = ""
+                    } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 17, weight: .black)).foregroundStyle(Theme.accentText)
+                            .frame(width: 44, height: 44).background(Theme.accent).clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .top)
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .preferredColorScheme(Theme.scheme)
     }
 }
 
@@ -373,27 +463,17 @@ struct ProfileView: View {
                     }
                     .buttonStyle(.plain)
 
-                    // Stats: Netzwerk · Pitches (⚡) · Folge ich (Folge ich nur auf eigenem Profil)
+                    // Stats: Netzwerk (Zwei-Wege-Kontakte) · Follower · Folge ich (Content)
                     HStack(spacing: 0) {
-                        NavigationLink { FollowersView(startTab: 0) } label: {
+                        NavigationLink { PitchesView() } label: {
                             statCol(value: "34", label: "NETZWERK")
                         }
                         .buttonStyle(.plain)
 
                         Rectangle().fill(Theme.line).frame(width: 1, height: 34)
 
-                        NavigationLink { PitchesView() } label: {
-                            VStack(spacing: 3) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "bolt.fill")
-                                        .font(.system(size: 12, weight: .black))
-                                        .foregroundStyle(Theme.accent)
-                                    Text("12").font(.pitchHead(20)).foregroundStyle(Theme.text)
-                                }
-                                Text("PITCHES").font(.system(size: 9, weight: .heavy)).kerning(0.8)
-                                    .foregroundStyle(Theme.textMuted)
-                            }
-                            .frame(maxWidth: .infinity)
+                        NavigationLink { FollowersView(startTab: 0) } label: {
+                            statCol(value: "248", label: "FOLLOWER")
                         }
                         .buttonStyle(.plain)
 
@@ -815,32 +895,16 @@ private let demoNotifs: [NotificationItem] = [
     .init(type: .comment, senderName: "Coach Demir",     icon: "flame.fill",      detail: "Saubere Technik!",  time: "vor 2 Tagen"),
 ]
 
-// Giftgrüner Glitzer-Schimmer für Pitch-Mitteilungen
-private struct GlitterBackground: View {
-    @State private var phase: CGFloat = -1
-    var body: some View {
-        GeometryReader { geo in
-            Theme.accent.opacity(0.10)
-                .overlay(
-                    LinearGradient(colors: [.clear, Theme.accent.opacity(0.4), .clear],
-                                   startPoint: .leading, endPoint: .trailing)
-                        .frame(width: geo.size.width * 0.45)
-                        .offset(x: phase * geo.size.width * 1.6)
-                )
-                .clipped()
-                .onAppear {
-                    withAnimation(.linear(duration: 2.2).repeatForever(autoreverses: false)) {
-                        phase = 1
-                    }
-                }
-        }
-    }
-}
-
 struct NotificationsView: View {
     @State private var pitchStates:  [UUID: Bool] = [:]   // true=angenommen, false=abgelehnt
-    @State private var followStates: [UUID: Bool] = [:]   // true=folge zurück → vernetzt
-    @State private var showComments = false               // Kommentar/Bewertung → Beitrag
+    @State private var followStates: [UUID: Bool] = [:]   // true=folgt zurück (reiner Content-Follow)
+
+    // Repräsentativer eigener Beitrag — Kommentar/Bewertung öffnet ihn
+    private var ownPost: FeedPost {
+        FeedPost(user: "Marvin Neumann", role: "Spieler", time: "vor 3 Std", category: "Highlight",
+                 rating: "8.9", caption: "Freistoßtor von der Strafraumkante. Wochenende war stark.",
+                 icon: "soccerball", reason: "Dein Beitrag")
+    }
 
     var body: some View {
         NavigationStack {
@@ -869,11 +933,6 @@ struct NotificationsView: View {
         .toolbar(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(Theme.scheme)
-        .sheet(isPresented: $showComments) {
-            CommentsView()
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
     }
 
     @ViewBuilder
@@ -916,15 +975,12 @@ struct NotificationsView: View {
             rightActions(n)
         }
         .padding(.horizontal, 4)
+        .padding(.vertical, 4)
         .background(
-            // Pitch-Zeilen bekommen einen giftgrünen Glitzer-Schimmer
-            Group {
-                if n.type == .pitch && pitchStates[n.id] == nil {
-                    GlitterBackground()
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-                }
-            }
+            // offene Pitches dezent hervorheben (statischer Tint, kein Effekt)
+            (n.type == .pitch && pitchStates[n.id] == nil ? Theme.accent.opacity(0.06) : Color.clear)
         )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
     }
 
     // Aktionen rechts: kleine Kästchen — gleiche Form bei Pitch & Follow
@@ -935,8 +991,19 @@ struct NotificationsView: View {
         case .pitch:
             if let accepted = pitchStates[n.id] {
                 if accepted {
-                    // angenommen → vernetzt, Chat öffnen (gleiche Form wie Follow-Chat)
-                    chatBox(person)
+                    // angenommen → nur ein grüner Haken (gleiche 34×34-Form, kein Layout-Sprung)
+                    // Chat ist freigeschaltet, öffnet beim Tippen
+                    NavigationLink {
+                        ChatView(person: person)
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 15, weight: .heavy))
+                            .foregroundStyle(Theme.success)
+                            .frame(width: 34, height: 34)
+                            .background(Theme.success.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.plain)
                 } else {
                     // abgelehnt → passiert nichts weiter
                     Text("Abgelehnt").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textFaint)
@@ -948,42 +1015,41 @@ struct NotificationsView: View {
                     }
                     squareBtn("checkmark", fg: Theme.accentText, bg: Theme.accent, border: false) {
                         withAnimation(.spring(duration: 0.2)) { pitchStates[n.id] = true }
-                        // TODO: Firestore: vernetzen + Chat-Nachricht "⚡ Pitch erfolgreich"
+                        // TODO: Firestore: Chat freischalten + System-Nachricht "⚡ Pitch erfolgreich"
                     }
                 }
             }
         case .follow:
             if followStates[n.id] == true {
-                // zurückgefolgt → vernetzt, Chat öffnen (gleiche Form wie Pitch-Chat)
-                chatBox(person)
+                // zurückgefolgt → reiner Content-Follow, KEIN Chat (Chat nur via Pitch)
+                // nur ein gedämpfter Haken (gleiche 34×34-Form, kein Layout-Sprung)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .heavy))
+                    .foregroundStyle(Theme.textMuted)
+                    .frame(width: 34, height: 34)
+                    .background(Theme.surfaceAlt)
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.line, lineWidth: 1))
             } else {
                 squareBtn("plus", fg: Theme.accentText, bg: Theme.accent, border: false) {
                     withAnimation(.spring(duration: 0.2)) { followStates[n.id] = true }
                 }
             }
         case .comment, .rating:
-            squareBtn("chevron.right", fg: Theme.text, bg: Theme.surfaceAlt, border: true) {
-                showComments = true
+            // führt zum Beitrag; bei Kommentar scrollt es direkt zur Kommentarsektion
+            NavigationLink {
+                PostDetailView(post: ownPost, openComments: n.type == .comment)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(Theme.text)
+                    .frame(width: 34, height: 34)
+                    .background(Theme.surfaceAlt)
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.text.opacity(0.3), lineWidth: 1))
             }
+            .buttonStyle(.plain)
         }
-    }
-
-    // Chat-Kästchen (NavigationLink) — nach Vernetzung, einheitlich für Pitch & Follow
-    private func chatBox(_ person: PersonRef) -> some View {
-        NavigationLink {
-            ChatView(person: person)
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "bubble.left.fill").font(.system(size: 12, weight: .heavy))
-                Text("Vernetzt").font(.system(size: 12, weight: .heavy))
-            }
-            .foregroundStyle(Theme.accent)
-            .frame(height: 34).padding(.horizontal, 12)
-            .background(Theme.accent.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 9))
-            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.accent.opacity(0.4), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
     }
 
     private func squareBtn(_ icon: String, fg: Color, bg: Color, border: Bool, action: @escaping () -> Void) -> some View {

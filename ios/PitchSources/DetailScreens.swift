@@ -22,6 +22,19 @@ func roleForIcon(_ icon: String) -> String {
     }
 }
 
+// Zwei Lager: Spieler vs. Organisation (Verein/Coach/Scout).
+// Pitch geht nur ÜBER die Lücke (Spieler ↔ Organisation).
+// Innerhalb eines Lagers (Spieler↔Spieler) verbindet man sich übers gegenseitige Folgen.
+func isOrganisation(_ role: String) -> Bool {
+    switch role {
+    case "Verein", "Vereinsverantwortlicher", "Coach", "Trainer", "Scout": return true
+    default:                                                                return false
+    }
+}
+func pitchAllowed(from viewerRole: String, to targetRole: String) -> Bool {
+    isOrganisation(viewerRole) != isOrganisation(targetRole)
+}
+
 // Wiederverwendbarer Zurück-Header (eigener statt System-NavBar)
 private struct BackHeader: View {
     let title: String
@@ -57,11 +70,17 @@ struct UserProfileView: View {
         switch person.role {
         case "Coach", "Trainer": return "Trainer"
         case "Scout": return "Scout"
+        case "Verein", "Vereinsverantwortlicher": return "Verein"
         default: return "Spieler"
         }
     }
-    // Viewer = Spieler (Demo): man pitcht nur rollenübergreifend, nicht Spieler→Spieler
-    private var canPitch: Bool { person.role != "Spieler" }
+    // Eingeloggter Nutzer in der Demo = Spieler
+    private let viewerRole = "Spieler"
+    // Pitch nur über die Lücke (Spieler ↔ Organisation)
+    private var canPitch: Bool { pitchAllowed(from: viewerRole, to: person.role) }
+    // Peers (gleiches Lager, z. B. Spieler↔Spieler): Chat über gegenseitiges Folgen.
+    // Demo-Annahme: die Gegenseite folgt dir bereits → sobald du zurückfolgst, ist der Chat offen.
+    private var isPeer: Bool { !canPitch }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -70,7 +89,7 @@ struct UserProfileView: View {
                 BackHeader(title: person.name)
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Fremdprofil: nur Netzwerk + Pitches (kein "Folge ich")
+                        // Fremdprofil: Netzwerk (Zwei-Wege-Kontakte) + Follower (Content)
                         HStack(spacing: 0) {
                             VStack(spacing: 3) {
                                 Text("34").font(.pitchHead(20)).foregroundStyle(Theme.text)
@@ -80,11 +99,8 @@ struct UserProfileView: View {
                             .frame(maxWidth: .infinity)
                             Rectangle().fill(Theme.line).frame(width: 1, height: 34)
                             VStack(spacing: 3) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "bolt.fill").font(.system(size: 12, weight: .black)).foregroundStyle(Theme.accent)
-                                    Text("12").font(.pitchHead(20)).foregroundStyle(Theme.text)
-                                }
-                                Text("PITCHES").font(.system(size: 9, weight: .heavy)).kerning(0.8)
+                                Text("248").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                Text("FOLLOWER").font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
                             }
                             .frame(maxWidth: .infinity)
@@ -109,18 +125,36 @@ struct UserProfileView: View {
         .preferredColorScheme(Theme.scheme)
     }
 
-    // Folgen (Content) + Pitch (Verbindung). Nach erfolgreichem Pitch: eigener Nachricht-Button.
+    // Folgen (Content) + Pitch (Recruiting) ODER, bei Peers, Chat via gegenseitiges Folgen.
     private var actionRow: some View {
+        VStack(spacing: 8) {
         HStack(spacing: 10) {
-            // Folgen — Toggle (sekundär, wenn daneben Pitch/Nachricht steht)
+            // Folgen — Toggle. Primär (gefüllt), wenn es bei Peers die einzige offene Aktion ist.
             Button {
                 withAnimation(.spring(duration: 0.2)) { following.toggle() }
             } label: {
                 actionLabel(following ? "Folge ich" : "Folgen",
                             icon: following ? "checkmark" : "plus",
-                            filled: !following && !canPitch)
+                            filled: !following && isPeer)
             }
             .buttonStyle(.plain)
+
+            // Peer (Spieler↔Spieler): Chat erst, wenn ihr euch gegenseitig folgt
+            if isPeer, following {
+                NavigationLink {
+                    ChatView(person: person)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bubble.left.fill").font(.system(size: 13, weight: .black))
+                        Text("Schreiben").font(.system(size: 14, weight: .heavy))
+                    }
+                    .foregroundStyle(Theme.accentText)
+                    .frame(maxWidth: .infinity).frame(height: 46)
+                    .background(Theme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                }
+                .buttonStyle(.plain)
+            }
 
             if pitchSent {
                 // Pitch gesendet → wartet auf Annahme. Chat öffnet erst, wenn er annimmt.
@@ -151,20 +185,16 @@ struct UserProfileView: View {
                 }
                 .buttonStyle(.plain)
             }
-
-            // Direkter Chat-Button (immer verfügbar)
-            NavigationLink {
-                ChatView(person: person)
-            } label: {
-                Image(systemName: "bubble.left.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 46, height: 46)
-                    .background(Theme.accent.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.accent.opacity(0.4), lineWidth: 1))
+        }
+        // Peer-Hinweis: Chat ist offen, weil ihr euch gegenseitig folgt
+        if isPeer, following {
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 10, weight: .black))
+                Text("Ihr folgt euch gegenseitig — Chat offen").font(.system(size: 11, weight: .semibold))
             }
-            .buttonStyle(.plain)
+            .foregroundStyle(Theme.textMuted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
         }
     }
 
@@ -214,10 +244,23 @@ struct UserProfileView: View {
         .padding(.horizontal, 14).padding(.vertical, 12)
     }
 
+    private var infoText: String {
+        switch person.role {
+        case "Verein", "Vereinsverantwortlicher":
+            return "Ambitionierter Verein mit klarer Perspektive. Wir suchen Spieler, die den nächsten Schritt gehen wollen."
+        case "Coach", "Trainer":
+            return "Lizenzierter Coach mit klarer Spielidee. Entwickelt Spieler und Mannschaft zielgerichtet."
+        case "Scout":
+            return "Talentscout mit Auge fürs Detail. Immer auf der Suche nach dem nächsten Sprung."
+        default:
+            return "Ehrgeiziger Spieler, der den nächsten Schritt sucht. Teamplayer, immer am Limit."
+        }
+    }
+
     private var infoSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Info über mich")
-            Text("Ehrgeiziger \(person.role), der den nächsten Schritt sucht. Teamplayer, immer am Limit.")
+            Text(infoText)
                 .font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)

@@ -45,6 +45,14 @@ func defaultFields(for role: String) -> [PitchField] {
             .init(icon: "building.2.fill",      label: "Organisation",            value: "FC Beispiel"),
             .init(icon: "binoculars.fill",      label: "Fokus-Liga",              value: "Landesliga / Oberliga"),
         ]
+    case "Verein", "Vereinsverantwortlicher":
+        return [
+            .init(icon: "calendar",             label: "Gegründet",               value: "1904"),
+            .init(icon: "trophy.fill",          label: "Liga",                    value: "Bezirksliga"),
+            .init(icon: "mappin.and.ellipse",   label: "Location",                value: "Düsseldorf"),
+            .init(icon: "sportscourt.fill",     label: "Heimstätte",              value: "Sportpark Eller"),
+            .init(icon: "person.3.fill",        label: "Sucht",                   value: "Stürmer, IV"),
+        ]
     default: // Spieler
         return [
             .init(icon: "calendar",            label: "Alter",                   value: "23"),
