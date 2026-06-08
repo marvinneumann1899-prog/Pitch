@@ -176,11 +176,7 @@ private struct PostCard: View {
 
             // Video/Bild
             ZStack {
-                Theme.surfaceAlt
-                Image(systemName: post.icon).font(.system(size: 56)).foregroundStyle(Theme.textFaint.opacity(0.6))
-                Circle().fill(Color.black.opacity(0.55)).frame(width: 56, height: 56)
-                    .overlay(Circle().stroke(Theme.line, lineWidth: 1))
-                    .overlay(Image(systemName: "play.fill").foregroundStyle(Theme.text).font(.system(size: 18)))
+                MediaThumb(seed: post.caption, icon: post.icon)
                 // Rating-Badge (nur Spieler + Highlight)
                 VStack { HStack {
                     if post.role == "Spieler" && post.category == "Highlight" {
@@ -339,16 +335,10 @@ struct PostDetailView: View {
                             }
 
                             // Medien
-                            ZStack {
-                                Theme.surfaceAlt
-                                Image(systemName: post.icon).font(.system(size: 56)).foregroundStyle(Theme.textFaint.opacity(0.6))
-                                Circle().fill(Color.black.opacity(0.55)).frame(width: 56, height: 56)
-                                    .overlay(Circle().stroke(Theme.line, lineWidth: 1))
-                                    .overlay(Image(systemName: "play.fill").foregroundStyle(Theme.text).font(.system(size: 18)))
-                            }
-                            .frame(height: 300)
-                            .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                            MediaThumb(seed: post.caption, icon: post.icon)
+                                .frame(height: 300)
+                                .frame(maxWidth: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
 
                             Text(post.caption).font(.system(size: 14)).foregroundStyle(Theme.text).lineSpacing(4)
 

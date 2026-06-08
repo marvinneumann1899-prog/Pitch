@@ -56,12 +56,74 @@ struct Chip: View {
     }
 }
 
-// MARK: - Avatar (SF Symbol statt Emoji)
+// MARK: - Demo-Bildquellen (Platzhalter; später echte User-Uploads)
+//
+// Personen-Porträts: pravatar.cc · Feld-/Spielbilder: loremflickr (Thema soccer/football).
+// Deterministisch über einen stabilen Hash, damit dieselbe Person/derselbe Post stets
+// dasselbe Bild zeigt. Offline → Marken-Gradient als Fallback (siehe RemoteImage/MediaThumb).
+
+func stableHash(_ s: String) -> Int {
+    abs(s.unicodeScalars.reduce(5381) { ($0 &* 33) &+ Int($1.value) })
+}
+
+func avatarPhotoURL(_ name: String) -> URL? {
+    URL(string: "https://i.pravatar.cc/200?img=\(stableHash(name) % 70 + 1)")
+}
+
+func feedImageURL(_ seed: String) -> URL? {
+    URL(string: "https://loremflickr.com/640/640/soccer,football,stadium?lock=\(stableHash(seed) % 90 + 1)")
+}
+
+// Vereine bekommen ein Wappen-Initial statt eines Porträts
+func isClubName(_ name: String) -> Bool {
+    if name.contains(where: \.isNumber) { return true }
+    let tokens = ["SV ","FC ","TSV","SC ","VfR","VfL","ETB","MSV","TuRU","TuS","SG ","DJK","FV ","BV "]
+    return tokens.contains { name.contains($0) }
+}
+
+// Bild mit Marken-Gradient-Fallback (lädt asynchron, blockt das UI nicht)
+struct RemoteImage<Fallback: View>: View {
+    let url: URL?
+    @ViewBuilder var fallback: () -> Fallback
+    var body: some View {
+        AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.25))) { phase in
+            if let img = phase.image { img.resizable().scaledToFill() }
+            else { fallback() }
+        }
+    }
+}
+
+// Feed-/Beitrags-Thumbnail mit echtem Bild + Play-Overlay (Clip-Optik)
+struct MediaThumb: View {
+    let seed: String
+    var icon: String = "soccerball"
+    var showPlay: Bool = true
+    var playSize: CGFloat = 54
+    var body: some View {
+        ZStack {
+            RemoteImage(url: feedImageURL(seed)) {
+                ZStack {
+                    LinearGradient(colors: [Theme.surfaceAlt, Theme.surface],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Image(systemName: icon).font(.system(size: 46)).foregroundStyle(Theme.textFaint.opacity(0.5))
+                }
+            }
+            if showPlay {
+                Circle().fill(Color.black.opacity(0.45)).frame(width: playSize, height: playSize)
+                    .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
+                    .overlay(Image(systemName: "play.fill").foregroundStyle(.white).font(.system(size: playSize * 0.34)))
+            }
+        }
+        .clipped()
+    }
+}
+
+// MARK: - Avatar (Foto für Personen, Wappen-Initial für Vereine)
 
 struct Avatar: View {
     var size: CGFloat = 44
     var systemName: String = "person.fill"
-    var name: String? = nil   // gesetzt → farbiger Kreis mit Initialen (Profilbild-Optik)
+    var name: String? = nil   // gesetzt → Foto (Person) bzw. farbiges Initial (Verein)
 
     // Avatar-Farbpalette (kräftig, gut unterscheidbar)
     private static let palette: [UInt] = [
@@ -80,32 +142,38 @@ struct Avatar: View {
 
     private var color: Color {
         guard let name else { return Theme.surfaceAlt }
-        let idx = abs(name.hashValue) % Self.palette.count
-        return Color(hex: Self.palette[idx])
+        return Color(hex: Self.palette[stableHash(name) % Self.palette.count])
+    }
+
+    private var initialsView: some View {
+        Text(initials)
+            .font(.system(size: size * 0.38, weight: .heavy))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(LinearGradient(colors: [color, color.opacity(0.72)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing))
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
     }
 
     var body: some View {
-        Group {
-            if let name, !name.isEmpty {
-                Text(initials)
-                    .font(.system(size: size * 0.38, weight: .heavy))
-                    .foregroundStyle(.white)
+        if let name, !name.isEmpty {
+            if isClubName(name) {
+                initialsView                                   // Verein → Wappen-Initial
+            } else {
+                RemoteImage(url: avatarPhotoURL(name)) { initialsView }  // Person → Foto
                     .frame(width: size, height: size)
-                    .background(
-                        LinearGradient(colors: [color, color.opacity(0.72)],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing)
-                    )
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
-            } else {
-                Image(systemName: systemName)
-                    .font(.system(size: size * 0.42, weight: .semibold))
-                    .foregroundStyle(Theme.textMuted)
-                    .frame(width: size, height: size)
-                    .background(Theme.surfaceAlt)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Theme.line, lineWidth: 1))
             }
+        } else {
+            Image(systemName: systemName)
+                .font(.system(size: size * 0.42, weight: .semibold))
+                .foregroundStyle(Theme.textMuted)
+                .frame(width: size, height: size)
+                .background(Theme.surfaceAlt)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Theme.line, lineWidth: 1))
         }
     }
 }

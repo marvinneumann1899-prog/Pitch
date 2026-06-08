@@ -86,6 +86,7 @@ struct PitchCard: View {
     var jerseyNumber: String? = "10"          // nur Spieler; nil = ausgeblendet
     var attributes: [String] = ["Schnelligkeit", "Zweikampf", "Kopfball"]
     var onAddAttribute: (() -> Void)? = nil    // non-nil = + Chip (eigenes Profil/Edit)
+    var photoFallback: Bool = false            // true = Demo-Porträt laden, wenn kein eigenes Bild
 
     private var resolvedFields: [PitchField] {
         fields ?? defaultFields(for: roleLabel)
@@ -99,6 +100,17 @@ struct PitchCard: View {
     private var lastName: String {
         let parts = name.split(separator: " ").map(String.init)
         return parts.count > 1 ? parts.dropFirst().joined(separator: " ") : ""
+    }
+
+    private var photoPlaceholder: some View {
+        ZStack {
+            Theme.surfaceAlt
+            VStack(spacing: 6) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 22)).foregroundStyle(Theme.accent.opacity(0.7))
+                Text("Foto").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textFaint)
+            }
+        }
     }
 
     var body: some View {
@@ -139,13 +151,10 @@ struct PitchCard: View {
                     ZStack {
                         if let img = profileImage {
                             Image(uiImage: img).resizable().scaledToFill()
+                        } else if photoFallback {
+                            RemoteImage(url: avatarPhotoURL(name)) { photoPlaceholder }
                         } else {
-                            Theme.surfaceAlt
-                            VStack(spacing: 6) {
-                                Image(systemName: "camera.fill")
-                                    .font(.system(size: 22)).foregroundStyle(Theme.accent.opacity(0.7))
-                                Text("Foto").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textFaint)
-                            }
+                            photoPlaceholder
                         }
                     }
                     .frame(width: 104, height: 124)
@@ -229,6 +238,7 @@ struct ActorCard: View {
     var profileImage: UIImage? = nil
     var fields: [PitchField]? = nil
     var bio: String = ""
+    var photoFallback: Bool = false            // true = Demo-Porträt laden (Fremdprofil)
 
     private var resolvedFields: [PitchField] { fields ?? defaultFields(for: roleLabel) }
     private var roleIcon: String {
@@ -239,15 +249,23 @@ struct ActorCard: View {
         }
     }
 
+    private var crestPlaceholder: some View {
+        ZStack {
+            Theme.surfaceAlt
+            Image(systemName: roleIcon).font(.system(size: 24)).foregroundStyle(Theme.accent.opacity(0.8))
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 14) {
                 ZStack {
                     if let img = profileImage {
                         Image(uiImage: img).resizable().scaledToFill()
+                    } else if !isClubName(name) && photoFallback {
+                        RemoteImage(url: avatarPhotoURL(name)) { crestPlaceholder }  // Person → Foto
                     } else {
-                        Theme.surfaceAlt
-                        Image(systemName: roleIcon).font(.system(size: 24)).foregroundStyle(Theme.accent.opacity(0.8))
+                        crestPlaceholder            // Verein oder eigenes/Onboarding → Icon
                     }
                 }
                 .frame(width: 64, height: 64).clipShape(Circle())

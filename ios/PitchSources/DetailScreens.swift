@@ -118,14 +118,15 @@ struct UserProfileView: View {
                         if person.role == "Spieler" {
                             PitchCard(name: person.name, fields: demo?.fields, roleLabel: cardRole,
                                       jerseyNumber: demo?.jersey ?? "10",
-                                      attributes: demo?.attributes ?? ["Schnelligkeit","Zweikampf","Kopfball"])
+                                      attributes: demo?.attributes ?? ["Schnelligkeit","Zweikampf","Kopfball"],
+                                      photoFallback: true)
                             actionRow
                             infoSection
                             beitraege
                             linkedSection      // Fupa/Fußball.de nur bei Spielern
                         } else {
                             ActorCard(name: person.name, roleLabel: cardRole,
-                                      fields: demo?.fields, bio: infoText)
+                                      fields: demo?.fields, bio: infoText, photoFallback: true)
                             actionRow
                             beitraege
                             linkedSection      // rollenabhängige Links (Fußball.de/Verein, Instagram …)
@@ -330,13 +331,8 @@ struct UserProfileView: View {
 
     private func postTeaser(_ p: DemoPost) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                Theme.surfaceAlt
-                Image(systemName: p.icon).font(.system(size: 22)).foregroundStyle(Theme.textFaint)
-                Image(systemName: "play.fill").font(.system(size: 12)).foregroundStyle(Theme.text.opacity(0.8))
-                    .padding(6).background(Color.black.opacity(0.5)).clipShape(Circle())
-            }
-            .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+            MediaThumb(seed: p.caption, icon: p.icon, playSize: 26)
+                .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Chip(label: p.category)
