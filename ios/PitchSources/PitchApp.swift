@@ -34,70 +34,87 @@ struct RootView: View {
 
 struct MainTabView: View {
     @State private var tab = 0
+    // Reset-Zähler pro Tab: erhöhen → View re-mountet → zurück zur Wurzel (pop-to-root)
+    @State private var resetIDs = [0, 0, 0, 0, 0]
 
     var body: some View {
-        VStack(spacing: 0) {
-            Group {
-                switch tab {
-                case 0: FeedView()
-                case 1: NotificationsView()
-                case 2: CreatePostView { tab = 0 }
-                case 3: MessagesView()
-                default: ProfileView()
-                }
+        ZStack(alignment: .bottom) {
+            // Alle Tabs bleiben am Leben → jeder behält seinen Navigationsstand.
+            ZStack {
+                slot(0) { FeedView() }
+                slot(1) { NotificationsView() }
+                slot(2) { CreatePostView { tab = 0 } }
+                slot(3) { MessagesView() }
+                slot(4) { ProfileView() }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            PitchTabBar(tab: $tab)
+            // Schwebende Glas-Tableiste
+            PitchTabBar(tab: tab) { tapped in
+                if tapped == tab { resetIDs[tapped] += 1 }   // aktiv erneut → zur Wurzel
+                else { tab = tapped }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
         }
         .background(Theme.bg)
     }
+
+    @ViewBuilder
+    private func slot<V: View>(_ index: Int, @ViewBuilder _ content: () -> V) -> some View {
+        content()
+            .id(resetIDs[index])                  // ändert sich → Reset zur Wurzel
+            .opacity(tab == index ? 1 : 0)
+            .allowsHitTesting(tab == index)
+            .zIndex(tab == index ? 1 : 0)
+    }
 }
 
+// Schwebende Liquid-Glas-Pille (BeReal-inspiriert): + mittig als Akzent, aktiver Tab grün.
 struct PitchTabBar: View {
-    @Binding var tab: Int
+    let tab: Int
+    var onSelect: (Int) -> Void
 
     var body: some View {
-        ZStack {
-            // Feed links · (Chats, Profil) rechts
-            HStack(spacing: 0) {
-                tabItem(icon: "house.fill", label: "Feed", index: 0)
-                tabItem(icon: "bell.fill", label: "Mitteilungen", index: 1)
-                Spacer()
-                tabItem(icon: "bubble.left.and.bubble.right.fill", label: "Chats", index: 3)
-                tabItem(icon: "person.fill", label: "Profil", index: 4)
-            }
-            .padding(.horizontal, 12)
-
-            // ＋ mittig (per ZStack zentriert)
-            createItem()
+        HStack(spacing: 0) {
+            tabItem(icon: "house.fill", index: 0)
+            tabItem(icon: "bell.fill", index: 1)
+            plusItem()
+            tabItem(icon: "bubble.left.and.bubble.right.fill", index: 3)
+            tabItem(icon: "person.fill", index: 4)
         }
-        .padding(.top, 10)
-        .padding(.bottom, 24)
-        .background(Theme.surface)
-        .overlay(Rectangle().fill(Theme.line).frame(height: 1), alignment: .top)
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .background(Theme.surface.opacity(0.4))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 0.7))
+        .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
     }
 
-    private func tabItem(icon: String, label: String, index: Int) -> some View {
+    private func tabItem(icon: String, index: Int) -> some View {
         let active = tab == index
         return Image(systemName: icon)
-            .font(.system(size: 23))
-            .foregroundStyle(active ? Theme.text : Theme.textFaint)
-            .frame(width: 64, height: 44)
+            .font(.system(size: 21, weight: active ? .bold : .regular))
+            .foregroundStyle(active ? Theme.accent : Theme.textMuted)
+            .frame(maxWidth: .infinity).frame(height: 44)
             .contentShape(Rectangle())
-            .onTapGesture { tab = index }
+            .onTapGesture { onSelect(index) }
     }
 
-    private func createItem() -> some View {
-        let active = tab == 2
-        return Image(systemName: "plus")
-            .font(.system(size: 24, weight: .bold))
+    private func plusItem() -> some View {
+        Image(systemName: "plus")
+            .font(.system(size: 21, weight: .bold))
             .foregroundStyle(Theme.accentText)
-            .frame(width: 52, height: 52)
-            .background(active ? Theme.text : Theme.accent)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .frame(width: 46, height: 46)
+            .background(
+                LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.85)],
+                               startPoint: .top, endPoint: .bottom)
+            )
+            .clipShape(Circle())
+            .shadow(color: Theme.accent.opacity(0.45), radius: 9, y: 3)
+            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
-            .onTapGesture { tab = 2 }
+            .onTapGesture { onSelect(2) }
     }
 }
 

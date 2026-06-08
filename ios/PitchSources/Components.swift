@@ -178,6 +178,106 @@ struct Avatar: View {
     }
 }
 
+// MARK: - Pull-to-Refresh mit Pitch-Logo (lädt sich mit Energie auf)
+
+private struct ScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+// Drei aufsteigende Chevrons, die sich von unten nach oben mit Akzent füllen.
+// progress 0…1 beim Ziehen; spinning = Refresh läuft (Energie-Welle).
+struct PitchRefreshIndicator: View {
+    var progress: CGFloat
+    var spinning: Bool
+    @State private var wave: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { g in
+            let w = g.size.width, h = g.size.height
+            let lw = max(3, w * 0.10)
+            ZStack {
+                ForEach(0..<3) { i in
+                    let dy = CGFloat(i) * h * 0.22
+                    // unten (i=2) lädt zuerst
+                    let order = CGFloat(2 - i)
+                    let lit = spinning
+                        ? (sin((wave - order * 0.5)) * 0.5 + 0.5)         // wandernde Welle
+                        : (progress >= (order + 1) / 3 ? 1 : (progress >= order / 3 ? 0.25 : 0.08))
+                    Path { p in
+                        p.move(to: CGPoint(x: w*0.20, y: h*0.62 + dy))
+                        p.addLine(to: CGPoint(x: w*0.5, y: h*0.40 + dy))
+                        p.addLine(to: CGPoint(x: w*0.80, y: h*0.62 + dy))
+                    }
+                    .stroke(Theme.accent.opacity(lit),
+                            style: StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
+                    .shadow(color: Theme.accent.opacity(lit * 0.8), radius: lit * 5)
+                }
+            }
+        }
+        .frame(width: 30, height: 30)
+        .onAppear {
+            if spinning {
+                withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) { wave = .pi * 2 }
+            }
+        }
+        .onChange(of: spinning) { _, on in
+            if on {
+                wave = 0
+                withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) { wave = .pi * 2 }
+            }
+        }
+    }
+}
+
+// ScrollView-Ersatz mit Pitch-Pull-to-Refresh. Indikator schwebt als Overlay
+// (nicht im gemessenen Inhalt → keine Rückkopplung).
+struct PitchRefresh<Content: View>: View {
+    var onRefresh: () async -> Void
+    @ViewBuilder var content: () -> Content
+
+    @State private var pull: CGFloat = 0
+    @State private var armed = false
+    @State private var refreshing = false
+    private let threshold: CGFloat = 70
+
+    var body: some View {
+        ScrollView {
+            content()
+                .padding(.top, refreshing ? 52 : 0)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: ScrollOffsetKey.self,
+                                               value: geo.frame(in: .named("pitchScroll")).minY)
+                    }
+                )
+        }
+        .scrollBounceBehavior(.always)
+        .coordinateSpace(name: "pitchScroll")
+        .overlay(alignment: .top) {
+            PitchRefreshIndicator(progress: min(pull / threshold, 1), spinning: refreshing)
+                .frame(width: 34, height: 34)
+                .opacity(refreshing ? 1 : Double(min(pull / 14, 1)))
+                .scaleEffect(refreshing ? 1 : (0.4 + 0.6 * min(pull / threshold, 1)))
+                .offset(y: refreshing ? 12 : min(pull * 0.5 - 30, 14))
+                .allowsHitTesting(false)
+        }
+        .onPreferenceChange(ScrollOffsetKey.self) { y in
+            pull = max(0, y)
+            guard !refreshing else { return }
+            if pull >= threshold { armed = true }
+            if armed && pull < 8 {
+                armed = false
+                Task {
+                    withAnimation(.spring(duration: 0.3)) { refreshing = true }
+                    await onRefresh()
+                    withAnimation(.spring(duration: 0.3)) { refreshing = false }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Section label
 
 struct SectionLabel: View {

@@ -56,14 +56,12 @@ private struct BackHeader: View {
     }
 }
 
-// MARK: - Fremd-Profil (hier lebt Pitch)
+// MARK: - Fremd-Profil
 
 struct UserProfileView: View {
     let person: PersonRef
 
     @State private var following = false
-    @State private var pitchSent = false
-    @State private var showToast = false
 
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
@@ -79,17 +77,10 @@ struct UserProfileView: View {
         default: return "Spieler"
         }
     }
-    // Eingeloggter Nutzer = die im Onboarding gewählte Rolle
-    @AppStorage("appRole") private var viewerRole = "Spieler"
-    // Pitch nur zwischen unterschiedlichen Rollen
-    private var canPitch: Bool { pitchAllowed(from: viewerRole, to: person.role) }
-    // Peers (gleiches Lager, z. B. Spieler↔Spieler): Chat über gegenseitiges Folgen.
-    // Demo-Annahme: die Gegenseite folgt dir bereits → sobald du zurückfolgst, ist der Chat offen.
-    private var isPeer: Bool { !canPitch }
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Theme.bg.ignoresSafeArea()
+            AmbientBackground()
             VStack(spacing: 0) {
                 BackHeader(title: person.name)
                 ScrollView {
@@ -102,7 +93,7 @@ struct UserProfileView: View {
                                     .foregroundStyle(Theme.textMuted)
                             }
                             .frame(maxWidth: .infinity)
-                            Rectangle().fill(Theme.line).frame(width: 1, height: 34)
+                            Rectangle().fill(Theme.line.opacity(0.6)).frame(width: 1, height: 30)
                             VStack(spacing: 3) {
                                 Text("\(demo?.followers ?? 248)").font(.pitchHead(20)).foregroundStyle(Theme.text)
                                 Text("FOLLOWER").font(.system(size: 9, weight: .heavy)).kerning(0.8)
@@ -110,10 +101,8 @@ struct UserProfileView: View {
                             }
                             .frame(maxWidth: .infinity)
                         }
-                        .padding(.vertical, 16)
-                        .background(Theme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
+                        .padding(.vertical, 18)
+                        .glassCard()
 
                         if person.role == "Spieler" {
                             PitchCard(name: person.name, fields: demo?.fields, roleLabel: cardRole,
@@ -135,95 +124,40 @@ struct UserProfileView: View {
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
                 }
             }
-            if showToast { toast }
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
     }
 
-    // Folgen (Content) + Pitch (Recruiting) ODER, bei Peers, Chat via gegenseitiges Folgen.
+    // Folgen (Content) + Schreiben (Chat)
     private var actionRow: some View {
-        VStack(spacing: 8) {
         HStack(spacing: 10) {
-            // Folgen — Toggle. Primär (gefüllt), wenn es bei Peers die einzige offene Aktion ist.
             Button {
                 withAnimation(.spring(duration: 0.2)) { following.toggle() }
             } label: {
-                actionLabel(following ? "Folge ich" : "Folgen",
-                            icon: following ? "checkmark" : "plus",
-                            filled: !following && isPeer)
+                HStack(spacing: 6) {
+                    Image(systemName: following ? "checkmark" : "plus").font(.system(size: 13, weight: .heavy))
+                    Text(following ? "Folge ich" : "Folgen").font(.system(size: 14, weight: .heavy))
+                }
+                .foregroundStyle(following ? Theme.text : Theme.accentText)
+                .frame(maxWidth: .infinity).frame(height: 48)
+                .background(following ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(Theme.accent))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.rMd, style: .continuous))
             }
             .buttonStyle(.plain)
 
-            // Peer (Spieler↔Spieler): Chat erst, wenn ihr euch gegenseitig folgt
-            if isPeer, following {
-                NavigationLink {
-                    ChatView(person: person)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bubble.left.fill").font(.system(size: 13, weight: .black))
-                        Text("Schreiben").font(.system(size: 14, weight: .heavy))
-                    }
-                    .foregroundStyle(Theme.accentText)
-                    .frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-                }
-                .buttonStyle(.plain)
-            }
-
-            if pitchSent {
-                // Pitch gesendet → wartet auf Annahme. Chat öffnet erst, wenn er annimmt.
+            NavigationLink { ChatView(person: person) } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "clock.fill").font(.system(size: 12, weight: .black))
-                    Text("Pitch gesendet").font(.system(size: 14, weight: .heavy))
+                    Image(systemName: "bubble.left.fill").font(.system(size: 13, weight: .black))
+                    Text("Schreiben").font(.system(size: 14, weight: .heavy))
                 }
-                .foregroundStyle(Theme.textMuted)
-                .frame(maxWidth: .infinity).frame(height: 46)
-                .background(Theme.surfaceAlt)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-                .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
-            } else if canPitch {
-                Button {
-                    withAnimation(.spring(duration: 0.25)) { pitchSent = true; showToast = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                        withAnimation { showToast = false }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bolt.fill").font(.system(size: 13, weight: .black))
-                        Text("PITCH").font(.system(size: 14, weight: .heavy)).kerning(0.5)
-                    }
-                    .foregroundStyle(Theme.accentText)
-                    .frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-                }
-                .buttonStyle(.plain)
+                .foregroundStyle(Theme.text)
+                .frame(maxWidth: .infinity).frame(height: 48)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.rMd, style: .continuous))
             }
+            .buttonStyle(.plain)
         }
-        // Peer-Hinweis: Chat ist offen, weil ihr euch gegenseitig folgt
-        if isPeer, following {
-            HStack(spacing: 5) {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 10, weight: .black))
-                Text("Ihr folgt euch gegenseitig — Chat offen").font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(Theme.textMuted)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        }
-    }
-
-    private func actionLabel(_ text: String, icon: String, filled: Bool) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 13, weight: .heavy))
-            Text(text).font(.system(size: 14, weight: .heavy))
-        }
-        .foregroundStyle(filled ? Theme.accentText : Theme.text)
-        .frame(maxWidth: .infinity).frame(height: 46)
-        .background(filled ? Theme.accent : Theme.surfaceAlt)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
-        .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(filled ? Color.clear : Theme.line, lineWidth: 1))
     }
 
     // Rollenabhängige externe Links
@@ -354,22 +288,6 @@ struct UserProfileView: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
     }
 
-    private var toast: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "bolt.fill").font(.system(size: 15, weight: .black)).foregroundStyle(Theme.accent)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Pitch an \(person.name) gesendet").font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.text)
-                Text("1 von 5 diese Woche").font(.system(size: 11)).foregroundStyle(Theme.textMuted)
-            }
-            Spacer()
-        }
-        .padding(14)
-        .background(Theme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
-        .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.accent.opacity(0.4), lineWidth: 1))
-        .padding(.horizontal, 20).padding(.bottom, 24)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
 }
 
 // MARK: - Chat-Thread

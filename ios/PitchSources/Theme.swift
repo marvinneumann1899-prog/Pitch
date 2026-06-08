@@ -1,8 +1,8 @@
 import SwiftUI
 
-// Pitch Design-System mit umschaltbaren Paletten.
-// „Grün" (lime, unsere Version) bleibt erhalten; „classic" = Farben von Marvins Bruder.
-// Umschalten: Theme.active = .lime  oder  .classic
+// Pitch Design-System — Hell-Glas (Liquid Glass), Stand 08.06.2026.
+// Heller, luftiger Grund + transluzentes Glas (SwiftUI Materials) + giftgrüner Akzent,
+// der vor allem als Beleuchtung/Glow wirkt. Frühere Paletten (lime/classic) bleiben wählbar.
 
 extension Color {
     init(hex: UInt, alpha: Double = 1) {
@@ -30,24 +30,24 @@ struct Palette {
         self.danger = Color(hex: danger); self.success = Color(hex: success)
     }
 
-    // Unsere Version – dark + electric lime
+    // Pitch-DNA — Schwarz (primär) + Neongrün #C6FF3A (sekundär), dunkles Liquid Glass
+    static let glass = Palette(
+        dark: true, bg: 0x000000, surface: 0x141417, surfaceAlt: 0x1E1E22, line: 0x2C2C31,
+        text: 0xFFFFFF, textMuted: 0x9A9AA3, textFaint: 0x66666E,
+        accent: 0xC6FF3A, accentText: 0x0A0A0A, danger: 0xFF4D4D, success: 0xC6FF3A
+    )
+
+    // (Archiv) dark + electric lime
     static let lime = Palette(
         dark: true, bg: 0x0B0B0C, surface: 0x141419, surfaceAlt: 0x1C1C24, line: 0x2A2A33,
         text: 0xFFFFFF, textMuted: 0x9A9AA3, textFaint: 0x62626B,
         accent: 0xC6FF3A, accentText: 0x0B0B0C, danger: 0xFF4D4D, success: 0x2BD576
     )
-
-    // Marvins Bruder – Primär #CC0000 (rot, aus „#CCOOO"), Sekundär #E8F4FD (hellblau) als heller Look
-    static let classic = Palette(
-        dark: false, bg: 0xE8F4FD, surface: 0xFFFFFF, surfaceAlt: 0xDCEAF8, line: 0xC4D8EA,
-        text: 0x0E2233, textMuted: 0x5B7088, textFaint: 0x9FB4C8,
-        accent: 0xCC0000, accentText: 0xFFFFFF, danger: 0xCC0000, success: 0x1B9E5A
-    )
 }
 
 enum Theme {
-    // >>> AKTIVE PALETTE HIER UMSCHALTEN <<<
-    static var active: Palette = .lime
+    // >>> AKTIVE PALETTE <<<
+    static var active: Palette = .glass
 
     static var bg: Color { active.bg }
     static var surface: Color { active.surface }
@@ -62,14 +62,79 @@ enum Theme {
     static var success: Color { active.success }
     static var scheme: ColorScheme { active.dark ? .dark : .light }
 
+    // Neongrün — Pitch-Signatur, auch für Glow/Beleuchtung
+    static let glow = Color(hex: 0xC6FF3A)
+
     // Radius
-    static let rSm: CGFloat = 10
-    static let rMd: CGFloat = 16
-    static let rLg: CGFloat = 22
+    static let rSm: CGFloat = 12
+    static let rMd: CGFloat = 18
+    static let rLg: CGFloat = 26
+    static let rXL: CGFloat = 34
     static let rPill: CGFloat = 999
 }
 
-// Headline-Schriften: breite, konstruierte Caps (KickBase-Charakter). Bleiben für beide Paletten gleich.
+// MARK: - Liquid-Glass-Bausteine
+
+// Ambient-Hintergrund: schwarzer Grund mit weichen Neongrün-Lichtflecken.
+// Liegt ganz unten, gibt der App den verschmolzenen, lebendigen Look (Pitch-DNA).
+struct AmbientBackground: View {
+    var body: some View {
+        ZStack {
+            Color.black
+            Circle().fill(Theme.glow.opacity(0.22))
+                .frame(width: 380).blur(radius: 140)
+                .offset(x: -150, y: -280)
+            Circle().fill(Theme.glow.opacity(0.10))
+                .frame(width: 320).blur(radius: 150)
+                .offset(x: 180, y: 360)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+// Dunkle Glas-Karte: transluzentes dunkles Material statt anthrazit-Fläche + harter Linie.
+struct GlassCard: ViewModifier {
+    var radius: CGFloat = Theme.rLg
+    var strong: Bool = false
+    func body(content: Content) -> some View {
+        content
+            .background(.ultraThinMaterial)
+            .background(Color.white.opacity(strong ? 0.10 : 0.05))
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
+            )
+            .shadow(color: Color.black.opacity(0.35), radius: 16, y: 8)
+    }
+}
+
+// Dunkles Glas über Medien: lässt die Bildfarben durchscheinen, weiße Schrift bleibt lesbar.
+struct MediaGlass: ViewModifier {
+    var radius: CGFloat = Theme.rMd
+    func body(content: Content) -> some View {
+        content
+            .background(.ultraThinMaterial)
+            .background(Color.black.opacity(0.28))
+            .environment(\.colorScheme, .dark)
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 0.6)
+            )
+    }
+}
+
+extension View {
+    func glassCard(_ radius: CGFloat = Theme.rLg, strong: Bool = false) -> some View {
+        modifier(GlassCard(radius: radius, strong: strong))
+    }
+    func mediaGlass(_ radius: CGFloat = Theme.rMd) -> some View {
+        modifier(MediaGlass(radius: radius))
+    }
+}
+
+// Headline-Schriften: breite, konstruierte Caps.
 extension Font {
     static func pitchDisplay(_ size: CGFloat, _ weight: Font.Weight = .black) -> Font {
         .system(size: size, weight: weight).width(.expanded)
