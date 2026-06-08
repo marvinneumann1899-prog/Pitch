@@ -22,17 +22,19 @@ func roleForIcon(_ icon: String) -> String {
     }
 }
 
-// Zwei Lager: Spieler vs. Organisation (Verein/Coach/Scout).
-// Pitch geht nur ÜBER die Lücke (Spieler ↔ Organisation).
-// Innerhalb eines Lagers (Spieler↔Spieler) verbindet man sich übers gegenseitige Folgen.
-func isOrganisation(_ role: String) -> Bool {
-    switch role {
-    case "Verein", "Vereinsverantwortlicher", "Coach", "Trainer", "Scout": return true
-    default:                                                                return false
+// Rollen normalisieren (Trainer=Coach, Vereinsverantwortlicher=Verein)
+func normalizedRole(_ r: String) -> String {
+    switch r {
+    case "Trainer", "Coach":                  return "Coach"
+    case "Verein", "Vereinsverantwortlicher": return "Verein"
+    default:                                  return r   // Spieler, Scout
     }
 }
-func pitchAllowed(from viewerRole: String, to targetRole: String) -> Bool {
-    isOrganisation(viewerRole) != isOrganisation(targetRole)
+// Pitch = Recruiting-Verbindung zwischen UNTERSCHIEDLICHEN Rollen
+// (Spieler↔Verein, Spieler↔Coach, Verein↔Coach, Scout↔Spieler …).
+// Gleiche Rolle (Spieler↔Spieler, Verein↔Verein) verbindet sich übers gegenseitige Folgen.
+func pitchAllowed(from a: String, to b: String) -> Bool {
+    normalizedRole(a) != normalizedRole(b)
 }
 
 // Wiederverwendbarer Zurück-Header (eigener statt System-NavBar)
@@ -77,9 +79,9 @@ struct UserProfileView: View {
         default: return "Spieler"
         }
     }
-    // Eingeloggter Nutzer in der Demo = Spieler
-    private let viewerRole = "Spieler"
-    // Pitch nur über die Lücke (Spieler ↔ Organisation)
+    // Eingeloggter Nutzer = die im Onboarding gewählte Rolle
+    @AppStorage("appRole") private var viewerRole = "Spieler"
+    // Pitch nur zwischen unterschiedlichen Rollen
     private var canPitch: Bool { pitchAllowed(from: viewerRole, to: person.role) }
     // Peers (gleiches Lager, z. B. Spieler↔Spieler): Chat über gegenseitiges Folgen.
     // Demo-Annahme: die Gegenseite folgt dir bereits → sobald du zurückfolgst, ist der Chat offen.
@@ -126,6 +128,7 @@ struct UserProfileView: View {
                                       fields: demo?.fields, bio: infoText)
                             actionRow
                             beitraege
+                            linkedSection      // rollenabhängige Links (Fußball.de/Verein, Instagram …)
                         }
                     }
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
@@ -222,14 +225,30 @@ struct UserProfileView: View {
         .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(filled ? Color.clear : Theme.line, lineWidth: 1))
     }
 
-    // Verlinkte externe Profile (Fupa / Fußball.de) — ganz unten auf dem Profil
+    // Rollenabhängige externe Links
+    private var links: [(String, String)] {
+        let s = slug
+        switch normalizedRole(person.role) {
+        case "Verein":
+            return [("Fußball.de", "fussball.de/verein/" + s), ("Webseite", s + ".de")]
+        case "Coach":
+            return [("Instagram", "instagram.com/" + s), ("Fußball.de", "fussball.de/trainer/" + s)]
+        case "Scout":
+            return [("LinkedIn", "linkedin.com/in/" + s), ("Organisation", "nrw-talent.net")]
+        default: // Spieler
+            return [("Fupa", "fupa.net/player/" + s), ("Fußball.de", "fussball.de/spieler/" + s)]
+        }
+    }
+
+    // Verlinkte externe Profile — ganz unten auf dem Profil (rollenabhängig)
     private var linkedSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Verlinkte Profile")
             VStack(spacing: 0) {
-                linkRow("Fupa", "fupa.net/player/" + slug)
-                Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 44)
-                linkRow("Fußball.de", "fussball.de/spieler/" + slug)
+                ForEach(Array(links.enumerated()), id: \.offset) { i, l in
+                    if i > 0 { Rectangle().fill(Theme.line).frame(height: 1).padding(.leading, 44) }
+                    linkRow(l.0, l.1)
+                }
             }
             .background(Theme.surface).clipShape(RoundedRectangle(cornerRadius: Theme.rLg))
             .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
@@ -1085,8 +1104,23 @@ struct CommentsView: View {
 
 struct LinkProfilesView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var fupa = ""
-    @State private var fussballde = ""
+    @AppStorage("appRole") private var role = "Spieler"
+    @State private var a = ""
+    @State private var b = ""
+
+    // Rollenabhängige Felder (Label + Platzhalter)
+    private var fields: [(String, String)] {
+        switch normalizedRole(role) {
+        case "Verein":
+            return [("Fußball.de", "https://www.fussball.de/verein/…"), ("Webseite", "https://…")]
+        case "Coach":
+            return [("Instagram", "https://instagram.com/…"), ("Fußball.de", "https://www.fussball.de/trainer/…")]
+        case "Scout":
+            return [("LinkedIn", "https://linkedin.com/in/…"), ("Organisation / Webseite", "https://…")]
+        default:
+            return [("Fupa", "https://www.fupa.net/player/…"), ("Fußball.de", "https://www.fussball.de/spieler/…")]
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -1098,8 +1132,8 @@ struct LinkProfilesView: View {
                         Text("Verlinke deine externen Profile. Sie erscheinen für alle, die dein Profil besuchen.")
                             .font(.system(size: 13)).foregroundStyle(Theme.textMuted)
 
-                        linkField("Fupa", "https://www.fupa.net/player/…", $fupa)
-                        linkField("Fußball.de", "https://www.fussball.de/spieler/…", $fussballde)
+                        linkField(fields[0].0, fields[0].1, $a)
+                        linkField(fields[1].0, fields[1].1, $b)
 
                         PitchButton(label: "Verknüpfen") { dismiss() }.padding(.top, 4)
                     }

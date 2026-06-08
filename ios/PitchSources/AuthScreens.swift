@@ -417,14 +417,18 @@ struct OnboardingView: View {
                           roleLabel: role, profileImage: profileImage,
                           fields: previewFields(isClub: role == "Verein"), bio: bio).padding(.top, 4)
             }
-            Button { accepted.toggle() } label: {
-                HStack(alignment: .top, spacing: 10) {
+            Button { withAnimation(.easeOut(duration: 0.12)) { accepted.toggle() } } label: {
+                HStack(alignment: .center, spacing: 12) {
                     Image(systemName: accepted ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 20)).foregroundStyle(accepted ? Theme.accent : Theme.textMuted)
+                        .font(.system(size: 22)).foregroundStyle(accepted ? Theme.accent : Theme.textMuted)
                     Text("Ich stimme den AGB und der Datenschutzerklärung zu.")
-                        .font(.system(size: 12)).foregroundStyle(Theme.textMuted).multilineTextAlignment(.leading)
-                    Spacer()
+                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.text).multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
                 }
+                .padding(14)
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
+                .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(accepted ? Theme.accent : Theme.line, lineWidth: accepted ? 1.5 : 1))
             }
             .buttonStyle(.plain).padding(.top, 8)
         }
@@ -433,11 +437,27 @@ struct OnboardingView: View {
 
     // Footer-Button
     private var footer: some View {
-        PitchButton(label: step == totalSteps - 1 ? "Loslegen" : "Weiter", action: advance)
-            .opacity(canAdvance ? 1 : 0.45)
-            .disabled(!canAdvance)
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
-            .background(Theme.bg)
+        VStack(spacing: 8) {
+            // Hinweis, warum der Button (noch) gesperrt ist
+            if !canAdvance {
+                Text(blockHint)
+                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textMuted)
+            }
+            PitchButton(label: step == totalSteps - 1 ? "Loslegen" : "Weiter", action: advance)
+                .opacity(canAdvance ? 1 : 0.45)
+                .disabled(!canAdvance)
+        }
+        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 20)
+        .background(Theme.bg)
+    }
+
+    private var blockHint: String {
+        switch step {
+        case 0: return "Wähle eine Rolle, um fortzufahren"
+        case 1: return "Wähle mindestens ein Ziel"
+        case 3: return "Bitte AGB & Datenschutz bestätigen"
+        default: return ""
+        }
     }
 
     private var canAdvance: Bool {

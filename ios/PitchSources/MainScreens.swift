@@ -17,32 +17,30 @@ struct FeedPost: Identifiable {
     var person: PersonRef { PersonRef(name: user, role: role, icon: icon, rating: rating) }
 }
 
-private let demoPosts: [FeedPost] = [
-    .init(user: "Leon Bäcker", role: "Spieler", time: "vor 2 Std", category: "Highlight",
-          rating: "8.9", caption: "Freistoßtor von der Strafraumkante. Wochenende war gut.",
-          icon: "soccerball", reason: "In deiner Nähe"),
-    .init(user: "TSV Eller 04", role: "Vereinsverantwortlicher", time: "vor 5 Std", category: "Erfolg",
-          rating: nil, caption: "Aufstieg in die Bezirksliga klargemacht! Wir suchen Verstärkung.",
-          icon: "trophy.fill", reason: "Dein Kontakt hat das bewertet"),
-    .init(user: "Mehmet Demir", role: "Coach", time: "gestern", category: "Highlight",
-          rating: nil, caption: "Pressing-Drill aus dem Training. Intensität war top.",
-          icon: "flame.fill", reason: "Weil du Fußball folgst"),
-    .init(user: "Jonas Weber", role: "Spieler", time: "vor 1 Std", category: "Highlight",
-          rating: "9.3", caption: "Solo über das halbe Feld und eiskalt abgeschlossen. 🔥",
-          icon: "soccerball", reason: "In deiner Nähe"),
-    .init(user: "Lena Groß", role: "Scout", time: "vor 4 Std", category: "Information",
-          rating: nil, caption: "Bin am Wochenende bei den Landesliga-Spielen in NRW unterwegs. Wer sticht raus?",
-          icon: "binoculars.fill", reason: "Dein Kontakt folgt ihr"),
-    .init(user: "Tim Albers", role: "Spieler", time: "vor 6 Std", category: "Highlight",
-          rating: "7.8", caption: "Zwei Tackles, ein Assist. Defensive stand wie eine Wand.",
-          icon: "soccerball", reason: "Weil du Fußball folgst"),
-    .init(user: "SV Düsseldorf 04", role: "Vereinsverantwortlicher", time: "gestern", category: "Erfolg",
-          rating: nil, caption: "Unser Torwart hat verlängert! Drei weitere Jahre zwischen den Pfosten. 🧤",
-          icon: "trophy.fill", reason: "In deiner Nähe"),
-    .init(user: "Marco Stein", role: "Spieler", time: "vor 8 Std", category: "Highlight",
-          rating: "8.4", caption: "Doppelpack im Derby. Tag könnte nicht besser sein.",
-          icon: "soccerball", reason: "Dein Kontakt hat das bewertet"),
-]
+// Feed aus EINER Quelle: den Posts der Demo-Personen (verschachtelt, damit es lebt).
+// Tippt man auf einen Autor, landet man auf seinem echten Profil.
+private let demoPosts: [FeedPost] = makeDemoFeed()
+
+private func makeDemoFeed() -> [FeedPost] {
+    let reasons = ["In deiner Nähe", "Weil du Fußball folgst",
+                   "Dein Kontakt hat das bewertet", "Dein Kontakt folgt dem Profil"]
+    // pro Person die Liste ihrer Posts; danach round-robin verschachteln
+    let lists = demoPeople.map { person in person.posts.map { (person, $0) } }
+    let maxLen = lists.map(\.count).max() ?? 0
+    var out: [FeedPost] = []
+    var r = 0
+    for idx in 0..<maxLen {
+        for list in lists where idx < list.count {
+            let (person, post) = list[idx]
+            out.append(FeedPost(user: person.name, role: person.role, time: post.time,
+                                category: post.category, rating: post.rating,
+                                caption: post.caption, icon: post.icon,
+                                reason: reasons[r % reasons.count]))
+            r += 1
+        }
+    }
+    return out
+}
 
 struct FeedView: View {
     @State private var showSearch = false
@@ -558,8 +556,9 @@ struct ProfileView: View {
                         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                    } // Ende Spieler-Features (Exposé)
 
-                    // integrations: externe Profile verlinken (Fupa, Fußball.de …)
+                    // Profile verknüpfen — für alle Rollen (rollenabhängige Felder)
                     NavigationLink {
                         LinkProfilesView()
                     } label: {
@@ -584,7 +583,6 @@ struct ProfileView: View {
                         .overlay(RoundedRectangle(cornerRadius: Theme.rLg).stroke(Theme.line, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-                    } // Ende Spieler-Features
                 }
                 .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
             }
@@ -1004,26 +1002,31 @@ struct NotificationsView: View {
         case .pitch:
             if let accepted = pitchStates[n.id] {
                 if accepted {
-                    // angenommen → nur ein grüner Haken (gleiche 34×34-Form, kein Layout-Sprung)
-                    // Chat ist freigeschaltet, öffnet beim Tippen
+                    // angenommen → Lime-Haken (Pitch-Style); Chat öffnet beim Tippen
                     NavigationLink {
                         ChatView(person: person)
                     } label: {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 15, weight: .heavy))
-                            .foregroundStyle(Theme.success)
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundStyle(Theme.accentText)
                             .frame(width: 34, height: 34)
-                            .background(Theme.success.opacity(0.15))
+                            .background(Theme.accent)
                             .clipShape(RoundedRectangle(cornerRadius: 9))
                     }
                     .buttonStyle(.plain)
                 } else {
-                    // abgelehnt → passiert nichts weiter
-                    Text("Abgelehnt").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textFaint)
+                    // abgelehnt → dezentes X, gedämpft
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(Theme.textFaint)
+                        .frame(width: 34, height: 34)
+                        .background(Theme.surfaceAlt)
+                        .clipShape(RoundedRectangle(cornerRadius: 9))
                 }
             } else {
+                // offen → dezentes X (ablehnen) + Lime-Haken (annehmen), im Pitch-Style
                 HStack(spacing: 8) {
-                    squareBtn("xmark", fg: Theme.danger, bg: Theme.danger.opacity(0.1), border: true) {
+                    squareBtn("xmark", fg: Theme.textMuted, bg: Theme.surfaceAlt, border: true) {
                         withAnimation(.spring(duration: 0.2)) { pitchStates[n.id] = false }
                     }
                     squareBtn("checkmark", fg: Theme.accentText, bg: Theme.accent, border: false) {
