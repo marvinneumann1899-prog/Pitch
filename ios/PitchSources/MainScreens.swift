@@ -25,22 +25,14 @@ private let demoPosts: [FeedPost] = makeDemoFeed()
 private func makeDemoFeed() -> [FeedPost] {
     let reasons = ["In deiner Nähe", "Weil du Fußball folgst",
                    "Dein Kontakt hat das bewertet", "Dein Kontakt folgt dem Profil"]
-    // pro Person die Liste ihrer Posts; danach round-robin verschachteln
-    let lists = demoPeople.map { person in person.posts.map { (person, $0) } }
-    let maxLen = lists.map(\.count).max() ?? 0
-    var out: [FeedPost] = []
-    var r = 0
-    for idx in 0..<maxLen {
-        for list in lists where idx < list.count {
-            let (person, post) = list[idx]
-            out.append(FeedPost(user: person.name, role: person.role, time: post.time,
-                                category: post.category, rating: post.rating,
-                                caption: post.caption, icon: post.icon,
-                                reason: reasons[r % reasons.count], image: post.image))
-            r += 1
-        }
+    // genau EINE Karte pro Person (erster Beitrag) → keine Dopplungen
+    return demoPeople.enumerated().compactMap { i, person in
+        guard let post = person.posts.first else { return nil }
+        return FeedPost(user: person.name, role: person.role, time: post.time,
+                        category: post.category, rating: post.rating,
+                        caption: post.caption, icon: post.icon,
+                        reason: reasons[i % reasons.count], image: post.image)
     }
-    return out
 }
 
 struct FeedView: View {
@@ -125,6 +117,7 @@ private struct PostCard: View {
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous)
                     .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
+                    .allowsHitTesting(false)   // Rahmen darf Taps nicht abfangen
             )
             .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
             .sheet(isPresented: $showComments) {
