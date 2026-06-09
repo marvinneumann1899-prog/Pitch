@@ -36,6 +36,8 @@ struct MainTabView: View {
     @State private var tab = 0
     // Reset-Zähler pro Tab: erhöhen → View re-mountet → zurück zur Wurzel (pop-to-root)
     @State private var resetIDs = [0, 0, 0, 0, 0]
+    // Tab-Leiste ausblenden, solange ein Chat offen ist (seitliches Vollbild-Gefühl)
+    @AppStorage("chatOpen") private var chatOpen = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -56,8 +58,13 @@ struct MainTabView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, -4)
+            .offset(y: chatOpen ? 160 : 0)
+            .opacity(chatOpen ? 0 : 1)
+            .allowsHitTesting(!chatOpen)
+            .animation(.easeInOut(duration: 0.22), value: chatOpen)
         }
         .background(Theme.bg)
+        .onAppear { chatOpen = false }   // beim App-Start nie versehentlich ausgeblendet
     }
 
     @ViewBuilder

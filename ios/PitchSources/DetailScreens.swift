@@ -62,7 +62,6 @@ struct UserProfileView: View {
     let person: PersonRef
 
     @State private var following = false
-    @State private var openChat: PersonRef? = nil   // Chat als Vollbild
 
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
@@ -128,9 +127,6 @@ struct UserProfileView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
-        .fullScreenCover(item: $openChat) { p in
-            NavigationStack { ChatView(person: p) }
-        }
     }
 
     // Folgen (Content) + Schreiben (Chat)
@@ -150,7 +146,7 @@ struct UserProfileView: View {
             }
             .buttonStyle(.plain)
 
-            Button { openChat = person } label: {
+            NavigationLink { ChatView(person: person) } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "bubble.left.fill").font(.system(size: 13, weight: .black))
                     Text("Schreiben").font(.system(size: 14, weight: .heavy))
@@ -304,6 +300,7 @@ struct ChatMsg: Identifiable {
 
 struct ChatView: View {
     let person: PersonRef
+    @AppStorage("chatOpen") private var chatOpen = false   // blendet die Tab-Leiste aus
     @State private var draft = ""
     @State private var messages: [ChatMsg] = [
         .init(text: "Pitch angenommen — lass uns reden!", mine: false),
@@ -378,6 +375,8 @@ struct ChatView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
+        .onAppear { chatOpen = true }
+        .onDisappear { chatOpen = false }
     }
 
     private func bubble(_ m: ChatMsg) -> some View {
