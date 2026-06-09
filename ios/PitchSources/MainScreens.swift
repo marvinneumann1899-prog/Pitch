@@ -92,35 +92,39 @@ private struct PostCard: View {
     private var showRating: Bool { post.role == "Spieler" && post.rating != nil }
 
     var body: some View {
-        // Medium — Hochkant; füllt die Karte. Overlays liegen sicher auf der Karten-Größe.
-        MediaThumb(seed: post.caption, icon: post.icon, imageName: post.image, showPlay: true, playSize: 58)
-            .frame(maxWidth: .infinity)
-            .containerRelativeFrame(.vertical) { length, _ in length * 0.74 }
-            .clipped()
-            .overlay(
+        // Vordergrund = Steuerelemente (immer tappbar); Medium liegt als Hintergrund dahinter.
+        VStack(spacing: 0) {
+            topRow
+            Spacer(minLength: 0)
+            if !ratingActive { bottomGlass }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background {
+            ZStack {
+                MediaThumb(seed: post.caption, icon: post.icon, imageName: post.image, showPlay: true, playSize: 58)
+                    .clipped()
                 LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .center, endPoint: .bottom)
+            }
+            .allowsHitTesting(false)
+        }
+        .containerRelativeFrame(.vertical) { length, _ in length * 0.74 }
+        .overlay(alignment: .bottomLeading) {
+            if ratingActive {
+                RatingBar(value: ratingValue)
+                    .padding(.leading, 22).padding(.bottom, 20)
+                    .transition(.scale(scale: 0.2, anchor: .bottomLeading).combined(with: .opacity))
                     .allowsHitTesting(false)
-            )
-            .overlay(alignment: .top) { topRow.padding(12) }
-            .overlay(alignment: .bottom) {
-                if !ratingActive { bottomGlass.padding(12) }
             }
-            .overlay(alignment: .bottomLeading) {
-                if ratingActive {
-                    RatingBar(value: ratingValue)
-                        .padding(.leading, 22).padding(.bottom, 20)
-                        .transition(.scale(scale: 0.2, anchor: .bottomLeading).combined(with: .opacity))
-                        .allowsHitTesting(false)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
-                    .allowsHitTesting(false)   // Rahmen darf Taps nicht abfangen
-            )
-            .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
-            .sheet(isPresented: $showComments) {
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
+                .allowsHitTesting(false)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+        .sheet(isPresented: $showComments) {
             CommentsView()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
