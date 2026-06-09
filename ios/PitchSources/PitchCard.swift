@@ -87,6 +87,7 @@ struct PitchCard: View {
     var attributes: [String] = ["Schnelligkeit", "Zweikampf", "Kopfball"]
     var onAddAttribute: (() -> Void)? = nil    // non-nil = + Chip (eigenes Profil/Edit)
     var photoFallback: Bool = false            // true = Demo-Porträt laden, wenn kein eigenes Bild
+    var imageName: String? = nil               // gebündeltes Profilbild (z. B. "p_nick")
 
     private var resolvedFields: [PitchField] {
         fields ?? defaultFields(for: roleLabel)
@@ -151,6 +152,8 @@ struct PitchCard: View {
                     ZStack {
                         if let img = profileImage {
                             Image(uiImage: img).resizable().scaledToFill()
+                        } else if let ui = bundledImage(imageName) {
+                            Image(uiImage: ui).resizable().scaledToFill()
                         } else if photoFallback {
                             RemoteImage(url: avatarPhotoURL(name)) { photoPlaceholder }
                         } else {
@@ -239,6 +242,7 @@ struct ActorCard: View {
     var fields: [PitchField]? = nil
     var bio: String = ""
     var photoFallback: Bool = false            // true = Demo-Porträt laden (Fremdprofil)
+    var imageName: String? = nil               // gebündeltes Profilbild
 
     private var resolvedFields: [PitchField] { fields ?? defaultFields(for: roleLabel) }
     private var roleIcon: String {
@@ -262,6 +266,8 @@ struct ActorCard: View {
                 ZStack {
                     if let img = profileImage {
                         Image(uiImage: img).resizable().scaledToFill()
+                    } else if let ui = bundledImage(imageName) {
+                        Image(uiImage: ui).resizable().scaledToFill()
                     } else if !isClubName(name) && photoFallback {
                         RemoteImage(url: avatarPhotoURL(name)) { crestPlaceholder }  // Person → Foto
                     } else {

@@ -108,14 +108,15 @@ struct UserProfileView: View {
                             PitchCard(name: person.name, fields: demo?.fields, roleLabel: cardRole,
                                       jerseyNumber: demo?.jersey ?? "10",
                                       attributes: demo?.attributes ?? ["Schnelligkeit","Zweikampf","Kopfball"],
-                                      photoFallback: true)
+                                      photoFallback: true, imageName: demo?.image)
                             actionRow
                             infoSection
                             beitraege
                             linkedSection      // Fupa/Fußball.de nur bei Spielern
                         } else {
                             ActorCard(name: person.name, roleLabel: cardRole,
-                                      fields: demo?.fields, bio: infoText, photoFallback: true)
+                                      fields: demo?.fields, bio: infoText, photoFallback: true,
+                                      imageName: demo?.image)
                             actionRow
                             beitraege
                             linkedSection      // rollenabhängige Links (Fußball.de/Verein, Instagram …)
@@ -265,7 +266,7 @@ struct UserProfileView: View {
 
     private func postTeaser(_ p: DemoPost) -> some View {
         HStack(spacing: 12) {
-            MediaThumb(seed: p.caption, icon: p.icon, playSize: 26)
+            MediaThumb(seed: p.caption, icon: p.icon, imageName: p.image, playSize: 26)
                 .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: Theme.rMd))
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {

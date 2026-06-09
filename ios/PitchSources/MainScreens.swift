@@ -13,6 +13,7 @@ struct FeedPost: Identifiable {
     let caption: String
     let icon: String
     let reason: String   // feed-algorithm: Transparenz warum dieser Post erscheint
+    var image: String? = nil   // gebündelter Clip
 
     var person: PersonRef { PersonRef(name: user, role: role, icon: icon, rating: rating) }
 }
@@ -35,7 +36,7 @@ private func makeDemoFeed() -> [FeedPost] {
             out.append(FeedPost(user: person.name, role: person.role, time: post.time,
                                 category: post.category, rating: post.rating,
                                 caption: post.caption, icon: post.icon,
-                                reason: reasons[r % reasons.count]))
+                                reason: reasons[r % reasons.count], image: post.image))
             r += 1
         }
     }
@@ -99,39 +100,34 @@ private struct PostCard: View {
     private var showRating: Bool { post.role == "Spieler" && post.rating != nil }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Medium — Hochkant (4:5, Instagram-Stil); füllt die Karte, Rest scrollt
-            MediaThumb(seed: post.caption, icon: post.icon, showPlay: true, playSize: 58)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-
-            LinearGradient(colors: [.clear, .black.opacity(0.25)], startPoint: .center, endPoint: .bottom)
-                .allowsHitTesting(false)
-
-            VStack(spacing: 0) {
-                topRow
-                Spacer(minLength: 0)
-                if !ratingActive { bottomGlass }
-            }
-            .padding(12)
-
-            if ratingActive {
-                RatingBar(value: ratingValue)
-                    .padding(.leading, 22).padding(.bottom, 20)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .transition(.scale(scale: 0.2, anchor: .bottomLeading).combined(with: .opacity))
+        // Medium — Hochkant; füllt die Karte. Overlays liegen sicher auf der Karten-Größe.
+        MediaThumb(seed: post.caption, icon: post.icon, imageName: post.image, showPlay: true, playSize: 58)
+            .frame(maxWidth: .infinity)
+            .containerRelativeFrame(.vertical) { length, _ in length * 0.74 }
+            .clipped()
+            .overlay(
+                LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .center, endPoint: .bottom)
                     .allowsHitTesting(false)
+            )
+            .overlay(alignment: .top) { topRow.padding(12) }
+            .overlay(alignment: .bottom) {
+                if !ratingActive { bottomGlass.padding(12) }
             }
-        }
-        .frame(maxWidth: .infinity)
-        .containerRelativeFrame(.vertical) { length, _ in length * 0.80 }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
-        )
-        .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
-        .sheet(isPresented: $showComments) {
+            .overlay(alignment: .bottomLeading) {
+                if ratingActive {
+                    RatingBar(value: ratingValue)
+                        .padding(.leading, 22).padding(.bottom, 20)
+                        .transition(.scale(scale: 0.2, anchor: .bottomLeading).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
+            )
+            .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+            .sheet(isPresented: $showComments) {
             CommentsView()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
@@ -326,7 +322,7 @@ struct PostDetailView: View {
                             }
 
                             // Medien
-                            MediaThumb(seed: post.caption, icon: post.icon)
+                            MediaThumb(seed: post.caption, icon: post.icon, imageName: post.image)
                                 .frame(height: 300)
                                 .frame(maxWidth: .infinity)
                                 .clipShape(RoundedRectangle(cornerRadius: Theme.rMd))

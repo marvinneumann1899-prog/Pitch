@@ -74,6 +74,12 @@ func feedImageURL(_ seed: String) -> URL? {
     URL(string: "https://loremflickr.com/640/800/soccer,football,stadium?lock=\(stableHash(seed) % 90 + 1)")
 }
 
+// Gebündeltes Bild aus PitchSources/Media (z. B. "p_nick"), sonst nil
+func bundledImage(_ name: String?) -> UIImage? {
+    guard let name, !name.isEmpty else { return nil }
+    return UIImage(named: name) ?? UIImage(named: name + ".jpg")
+}
+
 // Vereine bekommen ein Wappen-Initial statt eines Porträts
 func isClubName(_ name: String) -> Bool {
     if name.contains(where: \.isNumber) { return true }
@@ -97,15 +103,20 @@ struct RemoteImage<Fallback: View>: View {
 struct MediaThumb: View {
     let seed: String
     var icon: String = "soccerball"
+    var imageName: String? = nil       // gebündelter Clip (Vorrang vor Remote)
     var showPlay: Bool = true
     var playSize: CGFloat = 54
     var body: some View {
         ZStack {
-            RemoteImage(url: feedImageURL(seed)) {
-                ZStack {
-                    LinearGradient(colors: [Theme.surfaceAlt, Theme.surface],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: icon).font(.system(size: 46)).foregroundStyle(Theme.textFaint.opacity(0.5))
+            if let ui = bundledImage(imageName) {
+                Image(uiImage: ui).resizable().scaledToFill()
+            } else {
+                RemoteImage(url: feedImageURL(seed)) {
+                    ZStack {
+                        LinearGradient(colors: [Theme.surfaceAlt, Theme.surface],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                        Image(systemName: icon).font(.system(size: 46)).foregroundStyle(Theme.textFaint.opacity(0.5))
+                    }
                 }
             }
             if showPlay {
@@ -158,7 +169,12 @@ struct Avatar: View {
 
     var body: some View {
         if let name, !name.isEmpty {
-            if isClubName(name) {
+            if let ui = bundledImage(demoProfile(for: name)?.image) {
+                Image(uiImage: ui).resizable().scaledToFill()   // echtes Profilbild
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+            } else if isClubName(name) {
                 initialsView                                   // Verein → Wappen-Initial
             } else {
                 RemoteImage(url: avatarPhotoURL(name)) { initialsView }  // Person → Foto
