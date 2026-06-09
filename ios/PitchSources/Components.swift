@@ -249,6 +249,7 @@ struct PitchRefreshIndicator: View {
 // ScrollView-Ersatz mit Pitch-Pull-to-Refresh. Indikator schwebt als Overlay
 // (nicht im gemessenen Inhalt → keine Rückkopplung).
 struct PitchRefresh<Content: View>: View {
+    var scrollLocked: Bool = false           // true → Scroll aus (z. B. während Bewerten)
     var onRefresh: () async -> Void
     @ViewBuilder var content: () -> Content
 
@@ -268,6 +269,7 @@ struct PitchRefresh<Content: View>: View {
                     }
                 )
         }
+        .scrollDisabled(scrollLocked)
         .scrollBounceBehavior(.always)
         .coordinateSpace(name: "pitchScroll")
         .overlay(alignment: .top) {

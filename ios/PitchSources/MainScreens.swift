@@ -37,6 +37,7 @@ private func makeDemoFeed() -> [FeedPost] {
 
 struct FeedView: View {
     @State private var showSearch = false
+    @State private var ratingLock = false   // sperrt den Scroll, während bewertet wird
     var body: some View {
         NavigationStack {
             ZStack {
@@ -60,12 +61,14 @@ struct FeedView: View {
                     }
                     .padding(.horizontal, 18).padding(.vertical, 8)
 
-                    PitchRefresh {
+                    PitchRefresh(scrollLocked: ratingLock) {
                         // TODO: echtes Neuladen (Firebase) — neue Beiträge holen
                         try? await Task.sleep(nanoseconds: 1_100_000_000)
                     } content: {
                         LazyVStack(spacing: 8) {
-                            ForEach(demoPosts) { PostCard(post: $0) }
+                            ForEach(demoPosts) { post in
+                                PostCard(post: post, onRatingActive: { ratingLock = $0 })
+                            }
                         }
                         .padding(.top, 4).padding(.bottom, 16)   // randlos: volle Breite
                     }
@@ -83,11 +86,11 @@ struct FeedView: View {
 private struct PostCard: View {
     let post: FeedPost
     var showHeader: Bool = true
+    var onRatingActive: (Bool) -> Void = { _ in }   // true = Feed-Scroll sperren
     @State private var ratingActive = false
     @State private var ratingValue: Double = 8.0
     @State private var following = false
     @State private var showComments = false
-    @State private var expanded = false
 
     private var showRating: Bool { post.role == "Spieler" && post.rating != nil }
 
@@ -96,7 +99,7 @@ private struct PostCard: View {
         VStack(spacing: 0) {
             topRow
             Spacer(minLength: 0)
-            if !ratingActive { bottomGlass }
+            bottomGlass.opacity(ratingActive ? 0 : 1)   // bleibt montiert → Geste reißt nicht ab
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -112,7 +115,7 @@ private struct PostCard: View {
         .overlay(alignment: .bottomLeading) {
             if ratingActive {
                 RatingBar(value: ratingValue)
-                    .padding(.leading, 22).padding(.bottom, 20)
+                    .padding(.leading, 22).padding(.bottom, 18)
                     .transition(.scale(scale: 0.2, anchor: .bottomLeading).combined(with: .opacity))
                     .allowsHitTesting(false)
             }
@@ -176,63 +179,53 @@ private struct PostCard: View {
 
     // Unten: schmaler Streifen — Bewerten + Kommentar + Beschreibung (mit „mehr")
     private var bottomGlass: some View {
-        VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
-            if expanded {
-                Text(post.caption)
-                    .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            HStack(spacing: 12) {
-                // Bewerten — Logo, halten + wischen
-                PitchMark(fg: .black)
-                    .padding(7)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.glow)
-                    .clipShape(Circle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { g in
-                                if !ratingActive { withAnimation(.easeOut(duration: 0.12)) { ratingActive = true } }
-                                let v = 8.5 + Double(-g.translation.height) / 24.0
-                                ratingValue = min(10, max(7, (v * 10).rounded() / 10))
+        HStack(spacing: 12) {
+            // Bewerten — Logo halten + nach RECHTS wischen (7 → 10). Horizontal = kein Scroll-Konflikt.
+            PitchMark(fg: .black)
+                .padding(7)
+                .frame(width: 34, height: 34)
+                .background(Theme.glow)
+                .clipShape(Circle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { g in
+                            if !ratingActive {
+                                withAnimation(.easeOut(duration: 0.12)) { ratingActive = true }
+                                onRatingActive(true)   // Feed-Scroll sperren
                             }
-                            .onEnded { _ in withAnimation(.easeOut(duration: 0.15)) { ratingActive = false } }
-                    )
+                            let v = 8.5 + Double(-g.translation.height) / 24.0
+                            ratingValue = min(10, max(7, (v * 10).rounded() / 10))
+                        }
+                        .onEnded { _ in
+                            withAnimation(.easeOut(duration: 0.15)) { ratingActive = false }
+                            onRatingActive(false)
+                        }
+                )
 
-                Button { showComments = true } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "bubble.left").font(.system(size: 18)).foregroundStyle(.white)
-                        Text("12").font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.85))
-                    }
-                }
-                .buttonStyle(.plain)
-
-                // Beschreibung neben den Buttons
-                if !expanded {
-                    Text(post.caption)
-                        .font(.system(size: 12)).foregroundStyle(.white.opacity(0.9))
-                        .lineLimit(1)
-                    Spacer(minLength: 2)
-                    Button { withAnimation(.easeOut(duration: 0.15)) { expanded = true } } label: {
-                        Text("mehr").font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.glow)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Spacer(minLength: 2)
-                    Button { withAnimation(.easeOut(duration: 0.15)) { expanded = false } } label: {
-                        Text("weniger").font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.glow)
-                    }
-                    .buttonStyle(.plain)
+            Button { showComments = true } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "bubble.left").font(.system(size: 18)).foregroundStyle(.white)
+                    Text("12").font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.85))
                 }
             }
+            .buttonStyle(.plain)
+
+            Text(post.caption)
+                .font(.system(size: 12)).foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1)
+            Spacer(minLength: 2)
+
+            // „mehr" öffnet den ganzen Beitrag (kein janky Inline-Aufklappen)
+            NavigationLink { PostDetailView(post: post) } label: {
+                Text("mehr").font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.glow)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
         .mediaGlass(Theme.rMd)
     }
 }
+
 
 // Bewerten: der Stern-Kreis öffnet sich nach oben zu einer Kapsel mit Farbverlauf
 // (rot unten/7 → grün oben/10). Mittig über dem Button, fest. Knopf + Zahl folgen dem Daumen.
