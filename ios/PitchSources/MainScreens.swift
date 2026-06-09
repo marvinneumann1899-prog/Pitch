@@ -100,9 +100,9 @@ private struct PostCard: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Medium — quadratisch, volle Breite, nichts abgeschnitten
+            // Medium — Hochkant (4:5, Instagram-Stil); füllt die Karte, Rest scrollt
             MediaThumb(seed: post.caption, icon: post.icon, showPlay: true, playSize: 58)
-                .aspectRatio(1, contentMode: .fill)
+                .aspectRatio(4.0/5.0, contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .clipped()
 
@@ -124,7 +124,7 @@ private struct PostCard: View {
                     .allowsHitTesting(false)
             }
         }
-        .aspectRatio(1, contentMode: .fit)
+        .aspectRatio(4.0/5.0, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.rLg, style: .continuous)
@@ -782,6 +782,7 @@ private let demoChats: [ChatRow] = [
 
 struct MessagesView: View {
     @State private var showNewChat = false
+    @State private var openChat: PersonRef? = nil   // Chat als Vollbild (ohne Tab-Leiste)
     var body: some View {
         NavigationStack {
         ZStack {
@@ -805,8 +806,8 @@ struct MessagesView: View {
                 } content: {
                     VStack(spacing: 8) {
                         ForEach(demoChats) { chat in
-                            NavigationLink {
-                                ChatView(person: PersonRef(name: chat.name, role: "", icon: chat.icon))
+                            Button {
+                                openChat = PersonRef(name: chat.name, role: "", icon: chat.icon)
                             } label: {
                                 HStack(spacing: 12) {
                                     Avatar(size: 50, name: chat.name)
@@ -834,6 +835,9 @@ struct MessagesView: View {
         }
         .preferredColorScheme(Theme.scheme)
         .sheet(isPresented: $showNewChat) { SearchView() }
+        .fullScreenCover(item: $openChat) { p in
+            NavigationStack { ChatView(person: p) }
+        }
     }
 }
 

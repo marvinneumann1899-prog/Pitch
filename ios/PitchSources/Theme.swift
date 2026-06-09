@@ -93,6 +93,24 @@ struct AmbientBackground: View {
 }
 
 // Dunkle Glas-Karte: transluzentes dunkles Material statt anthrazit-Fläche + harter Linie.
+// Apple-Liquid-Glass-Rand: heller Specular-Rim oben-links, dezenter Glanz unten-rechts.
+// Gibt der Kante den lichtbrechenden Look (wie iOS Control Center).
+struct GlassRim: View {
+    var radius: CGFloat
+    var strength: Double = 1
+    var body: some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .strokeBorder(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.65 * strength),
+                             Color.white.opacity(0.16 * strength),
+                             Color.white.opacity(0.05 * strength),
+                             Color.white.opacity(0.30 * strength)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing),
+                lineWidth: 1)
+    }
+}
+
 struct GlassCard: ViewModifier {
     var radius: CGFloat = Theme.rLg
     var strong: Bool = false
@@ -101,10 +119,7 @@ struct GlassCard: ViewModifier {
             .background(.ultraThinMaterial)
             .background(Color.white.opacity(strong ? 0.10 : 0.05))
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
-            )
+            .overlay(GlassRim(radius: radius))
             .shadow(color: Color.black.opacity(0.35), radius: 16, y: 8)
     }
 }
@@ -118,10 +133,7 @@ struct MediaGlass: ViewModifier {
             .background(Color.black.opacity(0.28))
             .environment(\.colorScheme, .dark)
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(Color.white.opacity(0.14), lineWidth: 0.6)
-            )
+            .overlay(GlassRim(radius: radius, strength: 1.05))
     }
 }
 

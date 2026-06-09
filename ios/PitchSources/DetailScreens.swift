@@ -62,6 +62,7 @@ struct UserProfileView: View {
     let person: PersonRef
 
     @State private var following = false
+    @State private var openChat: PersonRef? = nil   // Chat als Vollbild
 
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
@@ -127,6 +128,9 @@ struct UserProfileView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
+        .fullScreenCover(item: $openChat) { p in
+            NavigationStack { ChatView(person: p) }
+        }
     }
 
     // Folgen (Content) + Schreiben (Chat)
@@ -146,7 +150,7 @@ struct UserProfileView: View {
             }
             .buttonStyle(.plain)
 
-            NavigationLink { ChatView(person: person) } label: {
+            Button { openChat = person } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "bubble.left.fill").font(.system(size: 13, weight: .black))
                     Text("Schreiben").font(.system(size: 14, weight: .heavy))

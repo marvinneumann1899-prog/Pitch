@@ -71,7 +71,7 @@ func avatarPhotoURL(_ name: String) -> URL? {
 }
 
 func feedImageURL(_ seed: String) -> URL? {
-    URL(string: "https://loremflickr.com/640/640/soccer,football,stadium?lock=\(stableHash(seed) % 90 + 1)")
+    URL(string: "https://loremflickr.com/640/800/soccer,football,stadium?lock=\(stableHash(seed) % 90 + 1)")
 }
 
 // Vereine bekommen ein Wappen-Initial statt eines Porträts

@@ -55,7 +55,7 @@ struct MainTabView: View {
                 else { tab = tapped }
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 4)
+            .padding(.bottom, -4)
         }
         .background(Theme.bg)
     }
@@ -87,7 +87,12 @@ struct PitchTabBar: View {
         .background(.ultraThinMaterial)
         .background(Theme.surface.opacity(0.4))
         .clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 0.7))
+        .overlay(
+            Capsule().strokeBorder(
+                LinearGradient(colors: [Color.white.opacity(0.7), Color.white.opacity(0.2), Color.white.opacity(0.45)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                lineWidth: 1)
+        )
         .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
     }
 
