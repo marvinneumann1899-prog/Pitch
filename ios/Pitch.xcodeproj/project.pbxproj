@@ -20,6 +20,7 @@
 		571EB8A743A4D1BFD26D7792 /* PitchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2885AE3FBEC233FAFC9942 /* PitchApp.swift */; };
 		6472FCB510F97893480D2377 /* c_heigl.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 23C46115FF4A5DBA7B67C6C2 /* c_heigl.jpg */; };
 		6C07630482D2E4447B6898FD /* MainScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0053A8E19D62D3574EFD82 /* MainScreens.swift */; };
+		73FFAEDE10763B5782AC6E40 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0DD52ED855EF66A946E856B9 /* GoogleService-Info.plist */; };
 		870AC247483D79F1F7746EC5 /* clip5.jpg in Resources */ = {isa = PBXBuildFile; fileRef = B6D5CF069CC1F9162E1DC5B3 /* clip5.jpg */; };
 		88180EFD3EA2C49C1C18EEBE /* p_nick.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 7258BEF4C9BE313660F2F656 /* p_nick.jpg */; };
 		8820EFE91E7C04A1B6F9954F /* clip6.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AD1C0376E17E350C2BDB16E3 /* clip6.jpg */; };
@@ -34,6 +35,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0DD52ED855EF66A946E856B9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		12207FD45ABA872FE43C7159 /* DetailScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailScreens.swift; sourceTree = "<group>"; };
 		21478C39E69DB5F5B04FD965 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		23C46115FF4A5DBA7B67C6C2 /* c_heigl.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = c_heigl.jpg; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 				D3DB34D188FAD1409E0F9B3C /* DemoData.swift */,
 				12207FD45ABA872FE43C7159 /* DetailScreens.swift */,
 				CA4DA025AFF7AB86040211E1 /* FirebaseService.swift */,
+				0DD52ED855EF66A946E856B9 /* GoogleService-Info.plist */,
 				FB0053A8E19D62D3574EFD82 /* MainScreens.swift */,
 				9D2885AE3FBEC233FAFC9942 /* PitchApp.swift */,
 				DF5E8889BEF16F346CF5AAA2 /* PitchCard.swift */,
@@ -191,6 +194,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				73FFAEDE10763B5782AC6E40 /* GoogleService-Info.plist in Resources */,
 				6472FCB510F97893480D2377 /* c_heigl.jpg in Resources */,
 				D0BE595FB1BDA854E64D26C1 /* c_kuestner.jpg in Resources */,
 				A217237CD1ACD6BF26F1E41E /* clip1.jpg in Resources */,
