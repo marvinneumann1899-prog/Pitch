@@ -97,11 +97,25 @@ struct AuthView: View {
         }
         isLoading = true
         errorMsg = nil
-        // TODO: Firebase Auth
-        // isSignUp ? Auth.auth().createUser(withEmail:password:) : Auth.auth().signIn(withEmail:password:)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            isLoading = false
-            isSignUp ? onSignUp() : onLogin()
+        Task { @MainActor in
+            defer { isLoading = false }
+            // Demo-Modus, solange kein Firebase-Projekt hinterlegt ist
+            guard AuthService.shared.isConfigured else {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                isSignUp ? onSignUp() : onLogin()
+                return
+            }
+            do {
+                if isSignUp {
+                    try await AuthService.shared.signUp(email: email, password: password)
+                    onSignUp()
+                } else {
+                    try await AuthService.shared.signIn(email: email, password: password)
+                    onLogin()
+                }
+            } catch {
+                errorMsg = authErrorText(error)
+            }
         }
     }
 

@@ -459,7 +459,10 @@ struct SettingsView: View {
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
         .confirmationDialog("Wirklich abmelden?", isPresented: $showLogout, titleVisibility: .visible) {
-            Button("Abmelden", role: .destructive) { phase = "auth" }
+            Button("Abmelden", role: .destructive) {
+                AuthService.shared.signOut()
+                phase = "auth"
+            }
             Button("Abbrechen", role: .cancel) {}
         }
         .confirmationDialog("Konto endgültig löschen? Das lässt sich nicht rückgängig machen.", isPresented: $showDelete, titleVisibility: .visible) {

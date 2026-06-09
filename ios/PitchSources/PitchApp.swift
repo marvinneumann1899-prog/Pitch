@@ -1,7 +1,15 @@
 import SwiftUI
+import FirebaseCore
 
 @main
 struct PitchApp: App {
+    init() {
+        // Nur konfigurieren, wenn ein echtes Firebase-Projekt hinterlegt ist
+        if Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist") != nil {
+            FirebaseApp.configure()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -12,6 +20,7 @@ struct PitchApp: App {
 struct RootView: View {
     // geteilte App-Phase, damit z. B. „Abmelden" aus den Einstellungen funktioniert
     @AppStorage("appPhase") private var phase = "auth"
+    @StateObject private var auth = AuthService.shared
 
     var body: some View {
         ZStack {
@@ -29,6 +38,10 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(Theme.scheme)
+        .onAppear {
+            // Session wiederherstellen: eingeloggt → direkt in die App
+            if auth.isConfigured && auth.isLoggedIn && phase == "auth" { phase = "main" }
+        }
     }
 }
 
