@@ -381,8 +381,12 @@ struct ProfileView: View {
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
     @AppStorage("appRole") private var appRole = "Spieler"
+    @AppStorage("userName") private var userName = ""
     private var isPlayer: Bool { appRole == "Spieler" }
-    private var ownName: String { appRole == "Verein" ? "TSV Beispiel 04" : "Marvin Neumann" }
+    private var ownName: String {
+        if !userName.isEmpty { return userName }                       // echter Name (Onboarding/Firestore)
+        return appRole == "Verein" ? "TSV Beispiel 04" : "Marvin Neumann"
+    }
 
     @State private var showEdit = false
     @State private var showAttrPicker = false
@@ -449,7 +453,7 @@ struct ProfileView: View {
                     .glassCard()
 
                     if isPlayer {
-                        PitchCard(roleLabel: "Spieler", attributes: attributes, onAddAttribute: { showAttrPicker = true })
+                        PitchCard(name: ownName, roleLabel: "Spieler", attributes: attributes, onAddAttribute: { showAttrPicker = true })
                     } else {
                         ActorCard(name: ownName, roleLabel: appRole, bio: bio)
                     }

@@ -461,6 +461,7 @@ struct SettingsView: View {
         .confirmationDialog("Wirklich abmelden?", isPresented: $showLogout, titleVisibility: .visible) {
             Button("Abmelden", role: .destructive) {
                 AuthService.shared.signOut()
+                UserDefaults.standard.removeObject(forKey: "userName")
                 phase = "auth"
             }
             Button("Abbrechen", role: .cancel) {}

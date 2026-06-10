@@ -7,6 +7,9 @@ struct AuthView: View {
     var onLogin: () -> Void = {}      // bestehender Account → direkt zur App
     var onSignUp: () -> Void = {}     // neuer Account → Onboarding
 
+    @AppStorage("appRole") private var appRole = "Spieler"
+    @AppStorage("userName") private var userName = ""
+
     @State private var isSignUp = false
     @State private var email = ""
     @State private var password = ""
@@ -111,7 +114,15 @@ struct AuthView: View {
                     onSignUp()
                 } else {
                     try await AuthService.shared.signIn(email: email, password: password)
-                    onLogin()
+                    // Profil aus Firestore ziehen → App rendert die echte Rolle/den echten Namen
+                    await ProfileStore.shared.load()
+                    if let p = ProfileStore.shared.profile {
+                        appRole = p.role
+                        userName = p.name
+                        onLogin()
+                    } else {
+                        onSignUp()   // Konto existiert, aber noch kein Profil → Onboarding nachholen
+                    }
                 }
             } catch {
                 errorMsg = authErrorText(error)
@@ -152,6 +163,7 @@ struct OnboardingView: View {
     var onDone: () -> Void = {}
 
     @AppStorage("appRole") private var appRole = "Spieler"
+    @AppStorage("userName") private var userName = ""
 
     @State private var step = 0
     @State private var role = ""
@@ -487,6 +499,10 @@ struct OnboardingView: View {
         if step < totalSteps - 1 { withAnimation(.easeInOut(duration: 0.2)) { step += 1 } }
         else {
             appRole = role.isEmpty ? "Spieler" : role   // Rolle merken → App rendert rollenabhängig
+            if !name.isEmpty { userName = name }
+            // Echtes Profil in Firestore ablegen (users/{uid}) — im Demo-Modus ohne Wirkung
+            ProfileStore.shared.save(UserProfile(
+                name: name, role: appRole, club: club, location: location, bio: bio))
             onDone()
         }
     }

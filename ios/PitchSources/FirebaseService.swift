@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Auth-Schicht
 //
@@ -38,6 +39,38 @@ final class AuthService: ObservableObject {
     func signOut() {
         try? Auth.auth().signOut()
         user = nil
+    }
+}
+
+// MARK: - Nutzerprofil (Firestore: users/{uid})
+
+struct UserProfile: Codable {
+    var name: String
+    var role: String       // Spieler / Trainer / Scout / Verein
+    var club: String
+    var location: String
+    var bio: String
+}
+
+@MainActor
+final class ProfileStore: ObservableObject {
+    static let shared = ProfileStore()
+    @Published var profile: UserProfile? = nil
+
+    // Beim Onboarding-Abschluss: Profil unter users/{uid} ablegen
+    func save(_ p: UserProfile) {
+        profile = p
+        guard AuthService.shared.isConfigured, let uid = AuthService.shared.user?.uid else { return }
+        try? Firestore.firestore().collection("users").document(uid).setData(from: p, merge: true)
+    }
+
+    // Beim Login: Profil laden (falls vorhanden)
+    func load() async {
+        guard AuthService.shared.isConfigured, let uid = AuthService.shared.user?.uid else { return }
+        if let snap = try? await Firestore.firestore().collection("users").document(uid).getDocument(),
+           let p = try? snap.data(as: UserProfile.self) {
+            profile = p
+        }
     }
 }
 
