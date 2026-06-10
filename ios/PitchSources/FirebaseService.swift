@@ -191,6 +191,17 @@ final class SocialStore: ObservableObject {
         return snap?.documents.compactMap { try? $0.data(as: PostDoc.self) } ?? []
     }
 
+    // Eigenen Beitrag löschen (inkl. Kommentare)
+    func deletePost(_ postId: String) async {
+        guard uid != nil else { return }
+        let ref = db.collection("posts").document(postId)
+        if let comments = try? await ref.collection("comments").getDocuments() {
+            for c in comments.documents { try? await c.reference.delete() }
+        }
+        try? await ref.delete()
+        feedVersion += 1
+    }
+
     // Nur Beiträge eines bestimmten Autors — serverseitig gefiltert
     func fetchPosts(by authorId: String) async -> [PostDoc] {
         guard uid != nil else { return [] }

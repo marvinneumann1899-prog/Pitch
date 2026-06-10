@@ -140,6 +140,16 @@ private struct PostCard: View {
                 .allowsHitTesting(false)
         )
         .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+        .contextMenu {
+            // eigener Beitrag → löschen (lange drücken)
+            if let pid = post.postId, post.authorId == AuthService.shared.user?.uid {
+                Button(role: .destructive) {
+                    Task { await SocialStore.shared.deletePost(pid) }
+                } label: {
+                    Label("Beitrag löschen", systemImage: "trash")
+                }
+            }
+        }
         .sheet(isPresented: $showComments) {
             CommentsView(postId: post.postId, postAuthorId: post.authorId)
                 .presentationDetents([.medium, .large])
