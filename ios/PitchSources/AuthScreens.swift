@@ -165,6 +165,7 @@ struct OnboardingView: View {
 
     @AppStorage("appRole") private var appRole = "Spieler"
     @AppStorage("userName") private var userName = ""
+    @AppStorage("appPhase") private var appPhase = "auth"
 
     @State private var step = 0
     @State private var role = ""
@@ -219,7 +220,15 @@ struct OnboardingView: View {
                 Text("Schritt \(step + 1) von \(totalSteps)")
                     .font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textMuted)
                 Spacer()
-                Color.clear.frame(width: 20, height: 20)
+                // Raus aus dem falschen Account → zurück zum Login
+                Button {
+                    AuthService.shared.signOut()
+                    UserDefaults.standard.removeObject(forKey: "userName")
+                    appPhase = "auth"
+                } label: {
+                    Text("Abmelden").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.textFaint)
+                }
+                .buttonStyle(.plain)
             }
             HStack(spacing: 6) {
                 ForEach(0..<totalSteps, id: \.self) { i in
