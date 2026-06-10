@@ -9,6 +9,7 @@ struct AuthView: View {
 
     @AppStorage("appRole") private var appRole = "Spieler"
     @AppStorage("userName") private var userName = ""
+    @AppStorage("appPhase") private var appPhase = "auth"
 
     @State private var isSignUp = false
     @State private var email = ""
@@ -110,9 +111,13 @@ struct AuthView: View {
             do {
                 if isSignUp {
                     try await AuthService.shared.signUp(email: email, password: password)
-                    onSignUp()
+                    appPhase = "verify"   // erst E-Mail bestätigen, dann Onboarding
                 } else {
                     try await AuthService.shared.signIn(email: email, password: password)
+                    guard AuthService.shared.isVerified else {
+                        appPhase = "verify"   // unbestätigte Konten müssen erst bestätigen
+                        return
+                    }
                     // Profil aus Firestore ziehen → App rendert die echte Rolle/den echten Namen
                     await ProfileStore.shared.load()
                     if let p = ProfileStore.shared.profile {
@@ -157,6 +162,74 @@ struct AuthView: View {
 
 // Rückwärtskompatibilität — PitchApp.swift referenziert SignUpView
 typealias SignUpView = AuthView
+
+// MARK: - E-Mail bestätigen (Pflicht-Schritt nach Registrierung)
+
+struct VerifyEmailView: View {
+    @AppStorage("appPhase") private var phase = "auth"
+    @AppStorage("appRole") private var appRole = "Spieler"
+    @AppStorage("userName") private var userName = ""
+    @State private var checking = false
+    @State private var resent = false
+    @State private var hint: String? = nil
+    // pollt alle 3 s → sobald der Link geklickt wurde, geht es automatisch weiter
+    private let timer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Spacer()
+                Image(systemName: "envelope.badge")
+                    .font(.system(size: 44)).foregroundStyle(Theme.accent)
+                Text("Bestätige deine E-Mail").font(.pitchHead(22)).foregroundStyle(Theme.text)
+                Text("Wir haben einen Bestätigungslink an\n\(AuthService.shared.user?.email ?? "deine E-Mail-Adresse") geschickt.\nSchau auch im Spam-Ordner nach.")
+                    .font(.system(size: 13)).foregroundStyle(Theme.textMuted)
+                    .multilineTextAlignment(.center).lineSpacing(3)
+                if let hint {
+                    Text(hint).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.danger)
+                }
+                PitchButton(label: checking ? "…" : "Ich habe bestätigt") {
+                    Task { await check() }
+                }
+                PitchButton(label: resent ? "Mail erneut gesendet ✓" : "Mail erneut senden", variant: .outline) {
+                    Task { await AuthService.shared.resendVerification() }
+                    resent = true
+                }
+                Spacer()
+                Button {
+                    AuthService.shared.signOut()
+                    phase = "auth"
+                } label: {
+                    Text("Abmelden").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.textFaint)
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 24)
+            }
+            .padding(.horizontal, 24)
+        }
+        .preferredColorScheme(Theme.scheme)
+        .onReceive(timer) { _ in Task { await check(auto: true) } }
+    }
+
+    private func check(auto: Bool = false) async {
+        if !auto { checking = true }
+        defer { checking = false }
+        if await AuthService.shared.refreshVerification() {
+            // bestätigt → Profil laden; vorhanden = App, sonst Onboarding
+            await ProfileStore.shared.load()
+            if let p = ProfileStore.shared.profile {
+                appRole = p.role
+                userName = p.name
+                phase = "main"
+            } else {
+                phase = "onboarding"
+            }
+        } else if !auto {
+            hint = "Noch nicht bestätigt — klick zuerst den Link in der Mail."
+        }
+    }
+}
 
 // MARK: - Onboarding (4-Schritt-Wizard: Rolle → Ziel → Profil → Fertig)
 

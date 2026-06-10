@@ -30,6 +30,8 @@ struct RootView: View {
             switch phase {
             case "onboarding":
                 OnboardingView { phase = "main" }
+            case "verify":
+                VerifyEmailView()
             case "main":
                 MainTabView()
             default:
@@ -43,6 +45,7 @@ struct RootView: View {
         .onAppear {
             guard auth.isConfigured else { return }
             if auth.isLoggedIn {
+                guard auth.isVerified else { phase = "verify"; return }
                 Task {
                     await ProfileStore.shared.load()
                     if let p = ProfileStore.shared.profile {

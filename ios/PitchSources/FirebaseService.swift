@@ -42,6 +42,20 @@ final class AuthService: ObservableObject {
         try? Auth.auth().signOut()
         user = nil
     }
+
+    var isVerified: Bool { user?.isEmailVerified ?? false }
+
+    // Status neu vom Server holen (nach Klick auf den Mail-Link)
+    func refreshVerification() async -> Bool {
+        guard let u = Auth.auth().currentUser else { return false }
+        try? await u.reload()
+        user = Auth.auth().currentUser
+        return user?.isEmailVerified ?? false
+    }
+
+    func resendVerification() async {
+        try? await Auth.auth().currentUser?.sendEmailVerification()
+    }
 }
 
 // MARK: - Nutzerprofil (Firestore: users/{uid})
