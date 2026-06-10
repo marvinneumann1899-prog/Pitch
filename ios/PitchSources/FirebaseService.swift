@@ -53,8 +53,18 @@ final class AuthService: ObservableObject {
         return user?.isEmailVerified ?? false
     }
 
-    func resendVerification() async {
-        try? await Auth.auth().currentUser?.sendEmailVerification()
+    // nil = erfolgreich, sonst Fehlertext (z. B. Rate-Limit)
+    func resendVerification() async -> String? {
+        do {
+            try await Auth.auth().currentUser?.sendEmailVerification()
+            return nil
+        } catch {
+            let code = AuthErrorCode(rawValue: (error as NSError).code)
+            if code == .tooManyRequests {
+                return "Zu viele Versuche — warte ein paar Minuten, dann erneut senden."
+            }
+            return authErrorText(error)
+        }
     }
 }
 

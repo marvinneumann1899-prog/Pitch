@@ -193,8 +193,15 @@ struct VerifyEmailView: View {
                     Task { await check() }
                 }
                 PitchButton(label: resent ? "Mail erneut gesendet ✓" : "Mail erneut senden", variant: .outline) {
-                    Task { await AuthService.shared.resendVerification() }
-                    resent = true
+                    Task {
+                        if let err = await AuthService.shared.resendVerification() {
+                            hint = err          // Fehler sichtbar machen (z. B. Rate-Limit)
+                            resent = false
+                        } else {
+                            hint = nil
+                            resent = true
+                        }
+                    }
                 }
                 Spacer()
                 Button {
