@@ -72,6 +72,32 @@ final class ProfileStore: ObservableObject {
             profile = p
         }
     }
+
+    // Alle registrierten User (für Suche etc.)
+    func fetchAllUsers() async -> [AppUser] {
+        guard AuthService.shared.isConfigured,
+              let snap = try? await Firestore.firestore().collection("users").getDocuments() else { return [] }
+        return snap.documents.compactMap { doc in
+            guard let p = try? doc.data(as: UserProfile.self) else { return nil }
+            return AppUser(id: doc.documentID, profile: p)
+        }
+    }
+}
+
+// Registrierter User mit uid (Firestore-Dokument)
+struct AppUser: Identifiable {
+    let id: String
+    let profile: UserProfile
+}
+
+// Icon je Rolle (für echte User ohne Demo-Icon)
+func iconForRole(_ role: String) -> String {
+    switch normalizedRole(role) {
+    case "Coach":  return "flame.fill"
+    case "Scout":  return "binoculars.fill"
+    case "Verein": return "trophy.fill"
+    default:       return "soccerball"
+    }
 }
 
 // Nutzerfreundliche Fehlertexte (statt roher Firebase-Codes)

@@ -1015,24 +1015,29 @@ struct SearchResult: Identifiable {
     let icon: String
 }
 
-private let demoResults: [SearchResult] = [
-    .init(name: "Jonas Weber", role: "Spieler", sub: "Stürmer · Landesliga · Köln", icon: "soccerball"),
-    .init(name: "Mehmet Demir", role: "Coach", sub: "A-Lizenz · Oberliga · Düsseldorf", icon: "flame.fill"),
-    .init(name: "SV Düsseldorf 04", role: "Verein", sub: "Bezirksliga · sucht Stürmer", icon: "trophy.fill"),
-    .init(name: "Lena Groß", role: "Scout", sub: "Talentscout · NRW", icon: "binoculars.fill"),
-    .init(name: "Tim Albers", role: "Spieler", sub: "Innenverteidiger · Kreisliga · Essen", icon: "soccerball"),
-]
-
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var filter = "Alle"
+    @State private var allUsers: [SearchResult] = []
     private let filters = ["Alle", "Spieler", "Coach", "Scout", "Verein"]
 
     var results: [SearchResult] {
-        demoResults.filter { r in
-            (filter == "Alle" || r.role == filter) &&
+        allUsers.filter { r in
+            (filter == "Alle" || normalizedRole(r.role) == normalizedRole(filter)) &&
             (query.isEmpty || r.name.localizedCaseInsensitiveContains(query))
+        }
+    }
+
+    // Echte registrierte User aus Firestore laden
+    private func loadUsers() async {
+        let users = await ProfileStore.shared.fetchAllUsers()
+        allUsers = users.map { u in
+            let sub = [u.profile.club, u.profile.location].filter { !$0.isEmpty }.joined(separator: " · ")
+            return SearchResult(name: u.profile.name.isEmpty ? "Ohne Namen" : u.profile.name,
+                                role: u.profile.role,
+                                sub: sub.isEmpty ? "Neu bei Pitch" : sub,
+                                icon: iconForRole(u.profile.role))
         }
     }
 
@@ -1073,6 +1078,14 @@ struct SearchView: View {
                 // Ergebnisse
                 ScrollView {
                     VStack(spacing: 0) {
+                        if results.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "person.2").font(.system(size: 28)).foregroundStyle(Theme.textFaint)
+                                Text(allUsers.isEmpty ? "Noch keine registrierten Nutzer" : "Keine Treffer")
+                                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity).padding(.top, 60)
+                        }
                         ForEach(results) { r in
                             NavigationLink {
                                 UserProfileView(person: PersonRef(name: r.name, role: r.role, icon: r.icon, sub: r.sub))
@@ -1101,6 +1114,7 @@ struct SearchView: View {
         .toolbar(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(Theme.scheme)
+        .task { await loadUsers() }
     }
 }
 

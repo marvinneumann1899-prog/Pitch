@@ -20,6 +20,8 @@ struct PitchApp: App {
 struct RootView: View {
     // geteilte App-Phase, damit z. B. „Abmelden" aus den Einstellungen funktioniert
     @AppStorage("appPhase") private var phase = "auth"
+    @AppStorage("appRole") private var appRole = "Spieler"
+    @AppStorage("userName") private var userName = ""
     @StateObject private var auth = AuthService.shared
 
     var body: some View {
@@ -41,9 +43,18 @@ struct RootView: View {
         .onAppear {
             guard auth.isConfigured else { return }
             if auth.isLoggedIn {
-                // Session wiederherstellen: eingeloggt → direkt in die App
-                if phase == "auth" { phase = "main" }
-                Task { await ProfileStore.shared.load() }
+                Task {
+                    await ProfileStore.shared.load()
+                    if let p = ProfileStore.shared.profile {
+                        // Session wiederherstellen: Profil da → rein, Rolle/Name syncen
+                        appRole = p.role
+                        userName = p.name
+                        if phase != "main" { phase = "main" }
+                    } else {
+                        // eingeloggt, aber kein Profil → Onboarding nachholen
+                        phase = "onboarding"
+                    }
+                }
             } else {
                 // nicht eingeloggt → immer zum Login (alte Demo-Phase verfällt)
                 phase = "auth"
