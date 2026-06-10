@@ -111,13 +111,9 @@ struct AuthView: View {
             do {
                 if isSignUp {
                     try await AuthService.shared.signUp(email: email, password: password)
-                    appPhase = "verify"   // erst E-Mail bestätigen, dann Onboarding
+                    onSignUp()   // E-Mail-Verifizierung vorerst deaktiviert (Mail-Zustellung klären)
                 } else {
                     try await AuthService.shared.signIn(email: email, password: password)
-                    guard AuthService.shared.isVerified else {
-                        appPhase = "verify"   // unbestätigte Konten müssen erst bestätigen
-                        return
-                    }
                     // Profil aus Firestore ziehen → App rendert die echte Rolle/den echten Namen
                     await ProfileStore.shared.load()
                     if let p = ProfileStore.shared.profile {
