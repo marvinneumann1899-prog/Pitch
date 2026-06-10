@@ -479,13 +479,7 @@ struct SettingsView: View {
                         group("Konto") {
                             navRow("person.crop.circle", "Account", "E-Mail & Passwort ändern") { AccountSettingsView() }
                             divider()
-                            navRow("lock.shield", "Sicherheit", "Zwei-Faktor, Geräte") {
-                                SettingDetailView(title: "Sicherheit", rows: [("Zwei-Faktor-Authentifizierung", true), ("Aktive Geräte", false), ("Login-Aktivität", false)])
-                            }
-                            divider()
                             navRow("link", "Verknüpfte Profile", "Fupa, Fußball.de") { LinkProfilesView() }
-                            divider()
-                            navRow("bolt.fill", "Pitch-Limit", "5 / Woche · Reset Freitag 21:00") { PitchLimitView() }
                         }
                         group("App") {
                             navRow("bell.fill", "Push-Benachrichtigungen", "Pitch, Chat, Bewertungen") {
