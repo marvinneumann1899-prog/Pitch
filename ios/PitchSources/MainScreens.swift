@@ -19,9 +19,9 @@ struct FeedPost: Identifiable {
     var person: PersonRef { PersonRef(name: user, role: role, icon: icon, rating: rating, uid: authorId) }
 }
 
-// Echte Beiträge aus Firestore → Feed-Karten
+// Echte Beiträge aus Firestore → Feed-Karten (nur Gefolgte + eigene)
 private func makeRealFeed() async -> [FeedPost] {
-    await SocialStore.shared.fetchPosts().map { p in
+    await SocialStore.shared.fetchFeedPosts().map { p in
         FeedPost(user: p.authorName, role: p.authorRole, time: timeAgo(p.createdAt),
                  category: p.category, rating: nil, caption: p.caption,
                  icon: iconForRole(p.authorRole), reason: "", image: nil, authorId: p.authorId)
@@ -221,7 +221,6 @@ private struct PostCard: View {
             Button { showComments = true } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "bubble.left").font(.system(size: 18)).foregroundStyle(.white)
-                    Text("12").font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.85))
                 }
             }
             .buttonStyle(.plain)
@@ -292,12 +291,9 @@ struct PostDetailView: View {
     let post: FeedPost
     var openComments: Bool = false
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("userName") private var userName = ""
     @State private var draft = ""
-    @State private var comments: [CommentItem] = [
-        .init(name: "Coach Demir",  icon: "flame.fill",  text: "Saubere Technik! Wann kommst du mal vorbei?", time: "2 Std"),
-        .init(name: "TSV Eller 04", icon: "trophy.fill", text: "Genau sowas suchen wir gerade.",            time: "1 Std"),
-        .init(name: "Jonas Weber",  icon: "soccerball",  text: "Übelster Freistoß, Hut ab.",                time: "34 Min"),
-    ]
+    @State private var comments: [CommentItem] = []   // startet leer (echte Kommentare folgen)
 
     var body: some View {
         ZStack {
@@ -374,7 +370,7 @@ struct PostDetailView: View {
                     Button {
                         let t = draft.trimmingCharacters(in: .whitespaces)
                         guard !t.isEmpty else { return }
-                        comments.append(.init(name: "Marvin Neumann", icon: "soccerball", text: t, time: "jetzt")); draft = ""
+                        comments.append(.init(name: userName.isEmpty ? "Du" : userName, icon: "soccerball", text: t, time: "jetzt")); draft = ""
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 17, weight: .black)).foregroundStyle(Theme.accentText)
@@ -419,9 +415,8 @@ struct ProfileView: View {
         if let p = ProfileStore.shared.profile, !p.bio.isEmpty { bio = p.bio }
         followerCount = await SocialStore.shared.fetchRelations(kind: "followers").count
         followingCount = await SocialStore.shared.fetchRelations(kind: "following").count
-        let myUid = AuthService.shared.user?.uid
-        ownPosts = await SocialStore.shared.fetchPosts()
-            .filter { $0.authorId == myUid }
+        guard let myUid = AuthService.shared.user?.uid else { ownPosts = []; return }
+        ownPosts = await SocialStore.shared.fetchPosts(by: myUid)
             .map { FeedPost(user: $0.authorName, role: $0.authorRole, time: timeAgo($0.createdAt),
                             category: $0.category, rating: nil, caption: $0.caption,
                             icon: iconForRole($0.authorRole), reason: "", authorId: $0.authorId) }

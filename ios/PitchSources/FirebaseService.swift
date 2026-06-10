@@ -41,6 +41,7 @@ final class AuthService: ObservableObject {
     func signOut() {
         try? Auth.auth().signOut()
         user = nil
+        ProfileStore.shared.profile = nil   // kein Profil-Rest für den nächsten Account
     }
 
     var isVerified: Bool { user?.isEmailVerified ?? false }
@@ -164,7 +165,9 @@ final class SocialStore: ObservableObject {
 
     // --- Beiträge ---
     func createPost(caption: String, category: String) async {
-        guard let uid, let me else { return }
+        guard let uid else { return }
+        if ProfileStore.shared.profile == nil { await ProfileStore.shared.load() }   // nie mit altem Profil posten
+        guard let me else { return }
         let post = PostDoc(authorId: uid, authorName: me.name, authorRole: me.role,
                            caption: caption, category: category, createdAt: Date())
         _ = try? db.collection("posts").addDocument(from: post)
@@ -176,6 +179,23 @@ final class SocialStore: ObservableObject {
         let snap = try? await db.collection("posts")
             .order(by: "createdAt", descending: true).limit(to: 100).getDocuments()
         return snap?.documents.compactMap { try? $0.data(as: PostDoc.self) } ?? []
+    }
+
+    // Nur Beiträge eines bestimmten Autors — serverseitig gefiltert
+    func fetchPosts(by authorId: String) async -> [PostDoc] {
+        guard uid != nil else { return [] }
+        let snap = try? await db.collection("posts")
+            .whereField("authorId", isEqualTo: authorId).getDocuments()
+        let posts = snap?.documents.compactMap { try? $0.data(as: PostDoc.self) } ?? []
+        return posts.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    // Feed: nur Beiträge von Leuten, denen ich folge — plus meine eigenen
+    func fetchFeedPosts() async -> [PostDoc] {
+        guard let uid else { return [] }
+        var allowed = Set(await fetchRelations(kind: "following").map(\.id))
+        allowed.insert(uid)
+        return await fetchPosts().filter { allowed.contains($0.authorId) }
     }
 
     // --- Follows ---

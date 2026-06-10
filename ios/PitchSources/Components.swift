@@ -170,17 +170,12 @@ struct Avatar: View {
     var body: some View {
         if let name, !name.isEmpty {
             if let ui = bundledImage(demoProfile(for: name)?.image) {
-                Image(uiImage: ui).resizable().scaledToFill()   // echtes Profilbild
+                Image(uiImage: ui).resizable().scaledToFill()   // gebündeltes Demo-Profilbild
                     .frame(width: size, height: size)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
-            } else if isClubName(name) {
-                initialsView                                   // Verein → Wappen-Initial
             } else {
-                RemoteImage(url: avatarPhotoURL(name)) { initialsView }  // Person → Foto
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.white.opacity(0.15), lineWidth: 1))
+                initialsView   // echte User: Initialen (bis Foto-Upload kommt) — keine Zufallsfotos
             }
         } else {
             Image(systemName: systemName)

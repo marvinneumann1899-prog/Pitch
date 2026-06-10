@@ -88,7 +88,7 @@ struct UserProfileView: View {
         following = await SocialStore.shared.isFollowing(id: uid)
         followerCount = await SocialStore.shared.fetchRelations(of: uid, kind: "followers").count
         networkCount = await SocialStore.shared.fetchRelations(of: uid, kind: "following").count
-        realPosts = await SocialStore.shared.fetchPosts().filter { $0.authorId == uid }
+        realPosts = await SocialStore.shared.fetchPosts(by: uid)
     }
 
     // PitchCard kennt Trainer/Scout/Spieler — Rollen mappen
@@ -583,21 +583,37 @@ struct SettingsView: View {
 // MARK: - Profil bearbeiten
 
 struct EditProfileView: View {
-    var role: String = "Spieler"   // eigene Rolle (Demo: Spieler)
+    var role: String = "Spieler"   // eigene Rolle
     @Environment(\.dismiss) private var dismiss
-    @State private var name = "Marvin Neumann"
-    @State private var nummer = "10"
-    @State private var position = "Innenverteidiger"
-    @State private var verein = "SV Düsseldorf 04"
-    @State private var liga = "Landesliga"
-    @State private var location = "Düsseldorf"
-    @State private var bio = "Innenverteidiger mit Drang nach vorne. Suche den nächsten Schritt."
+    @AppStorage("userName") private var userName = ""
+    @State private var name = ""
+    @State private var nummer = ""
+    @State private var position = ""
+    @State private var verein = ""
+    @State private var liga = ""
+    @State private var location = ""
+    @State private var bio = ""
     @State private var attributes: [String] = ["Schnelligkeit", "Zweikampf", "Kopfball"]
     @State private var showAttrPicker = false
     @State private var photoItem: PhotosPickerItem? = nil
     @State private var profileImage: UIImage? = nil
 
     private var roleHasAttributes: Bool { !attributesFor(role: role).isEmpty }
+
+    // Vorbefüllen mit dem echten Profil, Speichern schreibt zurück nach Firestore
+    private func prefill() {
+        let p = ProfileStore.shared.profile
+        name = p?.name ?? userName
+        verein = p?.club ?? ""
+        location = p?.location ?? ""
+        bio = p?.bio ?? ""
+    }
+
+    private func saveProfile() {
+        if !name.isEmpty { userName = name }
+        ProfileStore.shared.save(UserProfile(name: name, role: role, club: verein,
+                                             location: location, bio: bio))
+    }
 
     var body: some View {
         ZStack {
@@ -682,7 +698,7 @@ struct EditProfileView: View {
                             .overlay(RoundedRectangle(cornerRadius: Theme.rMd).stroke(Theme.line, lineWidth: 1))
                         }
 
-                        PitchButton(label: "Speichern", systemImage: "checkmark") { dismiss() }
+                        PitchButton(label: "Speichern", systemImage: "checkmark") { saveProfile(); dismiss() }
                             .padding(.top, 8)
                     }
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
@@ -691,6 +707,7 @@ struct EditProfileView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
+        .onAppear { prefill() }
         .sheet(isPresented: $showAttrPicker) {
             AttributePicker(selected: $attributes, role: role)
                 .presentationDetents([.medium, .large])
@@ -1028,11 +1045,7 @@ struct CommentItem: Identifiable {
 struct CommentsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft = ""
-    @State private var comments: [CommentItem] = [
-        .init(name: "Coach Demir",  icon: "flame.fill",  text: "Stark gemacht! Wann kommst du mal vorbei?", time: "2 Std"),
-        .init(name: "TSV Eller 04", icon: "trophy.fill", text: "Genau sowas suchen wir gerade.",            time: "1 Std"),
-        .init(name: "Jonas Weber",  icon: "soccerball",  text: "Übelster Freistoß, Hut ab.",                time: "34 Min"),
-    ]
+    @State private var comments: [CommentItem] = []   // startet leer (echte Kommentare folgen)
 
     var body: some View {
         ZStack {
@@ -1079,7 +1092,7 @@ struct CommentsView: View {
                     Button {
                         let t = draft.trimmingCharacters(in: .whitespaces)
                         guard !t.isEmpty else { return }
-                        comments.append(.init(name: "Marvin Neumann", icon: "soccerball", text: t, time: "jetzt")); draft = ""
+                        comments.append(.init(name: UserDefaults.standard.string(forKey: "userName") ?? "Du", icon: "soccerball", text: t, time: "jetzt")); draft = ""
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 17, weight: .black)).foregroundStyle(Theme.accentText)
