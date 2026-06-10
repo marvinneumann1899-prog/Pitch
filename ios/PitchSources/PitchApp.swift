@@ -39,8 +39,15 @@ struct RootView: View {
         }
         .preferredColorScheme(Theme.scheme)
         .onAppear {
-            // Session wiederherstellen: eingeloggt → direkt in die App
-            if auth.isConfigured && auth.isLoggedIn && phase == "auth" { phase = "main" }
+            guard auth.isConfigured else { return }
+            if auth.isLoggedIn {
+                // Session wiederherstellen: eingeloggt → direkt in die App
+                if phase == "auth" { phase = "main" }
+                Task { await ProfileStore.shared.load() }
+            } else {
+                // nicht eingeloggt → immer zum Login (alte Demo-Phase verfällt)
+                phase = "auth"
+            }
         }
     }
 }
