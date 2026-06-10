@@ -156,11 +156,24 @@ struct UserProfileView: View {
         .task { await loadReal() }
     }
 
+    // Bin ich das selbst? (dann keine Folgen/Schreiben-Knöpfe)
+    private var isSelf: Bool {
+        person.uid != nil && person.uid == AuthService.shared.user?.uid
+    }
+
     // Folgen (Content) + Schreiben (Chat)
+    @ViewBuilder
     private var actionRow: some View {
+        if isSelf {
+            Text("Das ist dein Profil")
+                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                .frame(maxWidth: .infinity).frame(height: 30)
+        } else {
         HStack(spacing: 10) {
             Button {
                 withAnimation(.spring(duration: 0.2)) { following.toggle() }
+                // Zahl sofort mitziehen, dann in der Datenbank speichern
+                if let c = followerCount { followerCount = following ? c + 1 : max(0, c - 1) }
                 if let uid = person.uid {
                     let nowFollowing = following
                     Task {
@@ -191,6 +204,7 @@ struct UserProfileView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.rMd, style: .continuous))
             }
             .buttonStyle(.plain)
+        }
         }
     }
 

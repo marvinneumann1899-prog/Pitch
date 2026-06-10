@@ -218,11 +218,13 @@ final class SocialStore: ObservableObject {
     }
 
     func sendMessage(to otherId: String, otherName: String, otherRole: String, text: String) async {
-        guard let uid, let me, let cid = chatId(with: otherId) else { return }
+        guard let uid, let me, let cid = chatId(with: otherId), otherId != uid else { return }
+        var names = [uid: me.name];  names[otherId] = otherName
+        var roles = [uid: me.role];  roles[otherId] = otherRole
         try? await db.collection("chats").document(cid).setData([
             "participants": [uid, otherId],
-            "names": [uid: me.name, otherId: otherName],
-            "roles": [uid: me.role, otherId: otherRole],
+            "names": names,
+            "roles": roles,
             "lastMessage": text,
             "lastAt": Timestamp(date: Date())
         ], merge: true)

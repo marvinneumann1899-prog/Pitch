@@ -1103,9 +1103,10 @@ struct SearchView: View {
         }
     }
 
-    // Echte registrierte User aus Firestore laden
+    // Echte registrierte User aus Firestore laden (ohne dich selbst)
     private func loadUsers() async {
-        let users = await ProfileStore.shared.fetchAllUsers()
+        let myUid = AuthService.shared.user?.uid
+        let users = await ProfileStore.shared.fetchAllUsers().filter { $0.id != myUid }
         allUsers = users.map { u in
             let sub = [u.profile.club, u.profile.location].filter { !$0.isEmpty }.joined(separator: " · ")
             return SearchResult(name: u.profile.name.isEmpty ? "Ohne Namen" : u.profile.name,
