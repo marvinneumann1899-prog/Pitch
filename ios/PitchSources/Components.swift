@@ -111,12 +111,13 @@ struct MediaThumb: View {
             if let ui = bundledImage(imageName) {
                 Image(uiImage: ui).resizable().scaledToFill()
             } else {
-                RemoteImage(url: feedImageURL(seed)) {
-                    ZStack {
-                        LinearGradient(colors: [Theme.surfaceAlt, Theme.surface],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing)
-                        Image(systemName: icon).font(.system(size: 46)).foregroundStyle(Theme.textFaint.opacity(0.5))
-                    }
+                // Beiträge ohne Medien: Marken-Hintergrund (kein Zufallsbild aus dem Netz)
+                ZStack {
+                    LinearGradient(colors: [Theme.surfaceAlt, Color.black],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Circle().fill(Theme.glow.opacity(0.13)).frame(width: 260).blur(radius: 80)
+                        .offset(x: -60, y: -80)
+                    Image(systemName: icon).font(.system(size: 46)).foregroundStyle(Theme.textFaint.opacity(0.5))
                 }
             }
             if showPlay {

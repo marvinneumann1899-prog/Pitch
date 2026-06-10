@@ -111,7 +111,9 @@ struct UserProfileView: View {
                         // Fremdprofil: Folgt + Follower (echte Zahlen bei registrierten Usern)
                         HStack(spacing: 0) {
                             VStack(spacing: 3) {
-                                Text("\(networkCount ?? demo?.network ?? 0)").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                // „–" bis geladen — kein 0→1-Springen
+                                Text(networkCount.map(String.init) ?? (demo?.network).map(String.init) ?? "–")
+                                    .font(.pitchHead(20)).foregroundStyle(Theme.text)
                                 Text(person.uid != nil ? "FOLGT" : "NETZWERK")
                                     .font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
@@ -119,7 +121,8 @@ struct UserProfileView: View {
                             .frame(maxWidth: .infinity)
                             Rectangle().fill(Theme.line.opacity(0.6)).frame(width: 1, height: 30)
                             VStack(spacing: 3) {
-                                Text("\(followerCount ?? demo?.followers ?? 0)").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                Text(followerCount.map(String.init) ?? (demo?.followers).map(String.init) ?? "–")
+                                    .font(.pitchHead(20)).foregroundStyle(Theme.text)
                                 Text("FOLLOWER").font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
                             }
@@ -447,8 +450,14 @@ struct ChatView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
-        .onAppear { chatOpen = true; attachIfReal() }
-        .onDisappear { chatOpen = false }
+        .onAppear {
+            chatOpen = true; attachIfReal()
+            if let uid = person.uid { Task { await SocialStore.shared.markChatRead(with: uid) } }
+        }
+        .onDisappear {
+            chatOpen = false
+            if let uid = person.uid { Task { await SocialStore.shared.markChatRead(with: uid) } }
+        }
     }
 
     private func bubble(_ m: ChatMsg) -> some View {
@@ -1043,9 +1052,18 @@ struct CommentItem: Identifiable {
 }
 
 struct CommentsView: View {
+    var postId: String? = nil          // Firestore-Post → echte Kommentare
+    var postAuthorId: String? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var draft = ""
-    @State private var comments: [CommentItem] = []   // startet leer (echte Kommentare folgen)
+    @State private var comments: [CommentItem] = []
+
+    private func loadComments() async {
+        guard let postId else { return }
+        comments = await SocialStore.shared.fetchComments(postId: postId).map {
+            CommentItem(name: $0.authorName, icon: "soccerball", text: $0.text, time: timeAgo($0.createdAt))
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -1064,6 +1082,11 @@ struct CommentsView: View {
 
                 ScrollView {
                     VStack(spacing: 0) {
+                        if comments.isEmpty {
+                            Text("Noch keine Kommentare — schreib den ersten!")
+                                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                                .padding(.vertical, 30)
+                        }
                         ForEach(comments) { c in
                             HStack(alignment: .top, spacing: 12) {
                                 Avatar(size: 38, name: c.name)
@@ -1092,7 +1115,11 @@ struct CommentsView: View {
                     Button {
                         let t = draft.trimmingCharacters(in: .whitespaces)
                         guard !t.isEmpty else { return }
-                        comments.append(.init(name: UserDefaults.standard.string(forKey: "userName") ?? "Du", icon: "soccerball", text: t, time: "jetzt")); draft = ""
+                        comments.append(.init(name: UserDefaults.standard.string(forKey: "userName") ?? "Du", icon: "soccerball", text: t, time: "jetzt"))
+                        if let postId {
+                            Task { await SocialStore.shared.addComment(postId: postId, postAuthorId: postAuthorId, text: t) }
+                        }
+                        draft = ""
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 17, weight: .black)).foregroundStyle(Theme.accentText)
@@ -1105,6 +1132,7 @@ struct CommentsView: View {
             }
         }
         .preferredColorScheme(Theme.scheme)
+        .task { await loadComments() }
     }
 }
 

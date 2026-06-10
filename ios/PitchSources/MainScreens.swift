@@ -15,6 +15,7 @@ struct FeedPost: Identifiable {
     let reason: String   // feed-algorithm: Transparenz warum dieser Post erscheint
     var image: String? = nil   // gebündelter Clip
     var authorId: String? = nil   // Firestore-uid des Autors (echte Posts)
+    var postId: String? = nil     // Firestore-Dokument-ID (für Kommentare)
 
     var person: PersonRef { PersonRef(name: user, role: role, icon: icon, rating: rating, uid: authorId) }
 }
@@ -24,7 +25,8 @@ private func makeRealFeed() async -> [FeedPost] {
     await SocialStore.shared.fetchFeedPosts().map { p in
         FeedPost(user: p.authorName, role: p.authorRole, time: timeAgo(p.createdAt),
                  category: p.category, rating: nil, caption: p.caption,
-                 icon: iconForRole(p.authorRole), reason: "", image: nil, authorId: p.authorId)
+                 icon: iconForRole(p.authorRole), reason: "", image: nil,
+                 authorId: p.authorId, postId: p.id)
     }
 }
 
@@ -139,7 +141,7 @@ private struct PostCard: View {
         )
         .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
         .sheet(isPresented: $showComments) {
-            CommentsView()
+            CommentsView(postId: post.postId, postAuthorId: post.authorId)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -293,7 +295,14 @@ struct PostDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("userName") private var userName = ""
     @State private var draft = ""
-    @State private var comments: [CommentItem] = []   // startet leer (echte Kommentare folgen)
+    @State private var comments: [CommentItem] = []
+
+    private func loadComments() async {
+        guard let postId = post.postId else { return }
+        comments = await SocialStore.shared.fetchComments(postId: postId).map {
+            CommentItem(name: $0.authorName, icon: "soccerball", text: $0.text, time: timeAgo($0.createdAt))
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -370,7 +379,11 @@ struct PostDetailView: View {
                     Button {
                         let t = draft.trimmingCharacters(in: .whitespaces)
                         guard !t.isEmpty else { return }
-                        comments.append(.init(name: userName.isEmpty ? "Du" : userName, icon: "soccerball", text: t, time: "jetzt")); draft = ""
+                        comments.append(.init(name: userName.isEmpty ? "Du" : userName, icon: "soccerball", text: t, time: "jetzt"))
+                        if let postId = post.postId {
+                            Task { await SocialStore.shared.addComment(postId: postId, postAuthorId: post.authorId, text: t) }
+                        }
+                        draft = ""
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 17, weight: .black)).foregroundStyle(Theme.accentText)
@@ -384,6 +397,7 @@ struct PostDetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
+        .task { await loadComments() }
     }
 }
 
@@ -419,7 +433,8 @@ struct ProfileView: View {
         ownPosts = await SocialStore.shared.fetchPosts(by: myUid)
             .map { FeedPost(user: $0.authorName, role: $0.authorRole, time: timeAgo($0.createdAt),
                             category: $0.category, rating: nil, caption: $0.caption,
-                            icon: iconForRole($0.authorRole), reason: "", authorId: $0.authorId) }
+                            icon: iconForRole($0.authorRole), reason: "",
+                            authorId: $0.authorId, postId: $0.id) }
     }
 
     var body: some View {
@@ -501,14 +516,10 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity).padding(.vertical, 40)
                             .glassCard()
                         } else {
-                            ScrollView(showsIndicators: false) {
-                                LazyVStack(spacing: 14) {
-                                    ForEach(ownPosts) { PostCard(post: $0, showHeader: false) }
-                                }
-                                .padding(12)
+                            // direkt im Profil-Scroll (kein verschachteltes Scrollfenster)
+                            LazyVStack(spacing: 14) {
+                                ForEach(ownPosts) { PostCard(post: $0, showHeader: false) }
                             }
-                            .frame(height: 460)
-                            .glassCard()
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -811,9 +822,12 @@ struct MessagesView: View {
         let myUid = AuthService.shared.user?.uid
         realChats = await SocialStore.shared.fetchChats().compactMap { c in
             guard let other = c.participants.first(where: { $0 != myUid }) else { return nil }
+            // ungelesen = letzte Nachricht vom anderen UND neuer als mein letzter Lesezeitpunkt
+            let lastRead = (myUid.flatMap { c.reads?[$0] }) ?? .distantPast
+            let unread = c.lastSenderId != nil && c.lastSenderId != myUid && c.lastAt > lastRead
             return ChatRow(name: c.names[other] ?? "?", last: c.lastMessage,
                            time: timeAgo(c.lastAt), icon: iconForRole(c.roles[other] ?? "Spieler"),
-                           unread: false, uid: other, role: c.roles[other] ?? "")
+                           unread: unread, uid: other, role: c.roles[other] ?? "")
         }
         chatsLoaded = true
     }
@@ -908,7 +922,8 @@ struct NotificationsView: View {
         var mapped: [NotificationItem] = []
         var uids: [UUID: String] = [:]
         for d in docs {
-            let item = NotificationItem(type: .follow, senderName: d.fromName,
+            let item = NotificationItem(type: d.type == "comment" ? .comment : .follow,
+                                        senderName: d.fromName,
                                         icon: iconForRole(d.fromRole), detail: "",
                                         time: timeAgo(d.createdAt))
             mapped.append(item)

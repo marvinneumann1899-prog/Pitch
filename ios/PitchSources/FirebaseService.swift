@@ -136,6 +136,16 @@ struct ChatDoc: Codable, Identifiable {
     var roles: [String: String]
     var lastMessage: String
     var lastAt: Date
+    var lastSenderId: String? = nil
+    var reads: [String: Date]? = nil   // pro Nutzer: zuletzt gelesen
+}
+
+struct CommentDoc: Codable, Identifiable {
+    @DocumentID var id: String?
+    var authorId: String
+    var authorName: String
+    var text: String
+    var createdAt: Date
 }
 
 struct MessageDoc: Codable, Identifiable {
@@ -256,7 +266,8 @@ final class SocialStore: ObservableObject {
             "names": names,
             "roles": roles,
             "lastMessage": text,
-            "lastAt": Timestamp(date: Date())
+            "lastAt": Timestamp(date: Date()),
+            "lastSenderId": uid
         ], merge: true)
         let msg = MessageDoc(senderId: uid, text: text, createdAt: Date())
         _ = try? db.collection("chats").document(cid).collection("messages").addDocument(from: msg)
@@ -278,6 +289,34 @@ final class SocialStore: ObservableObject {
             .addSnapshotListener { snap, _ in
                 onChange(snap?.documents.compactMap { try? $0.data(as: MessageDoc.self) } ?? [])
             }
+    }
+
+    // Chat als gelesen markieren (für den Ungelesen-Punkt)
+    func markChatRead(with otherId: String) async {
+        guard let uid, let cid = chatId(with: otherId) else { return }
+        try? await db.collection("chats").document(cid)
+            .setData(["reads": [uid: Timestamp(date: Date())]], merge: true)
+    }
+
+    // --- Kommentare ---
+    func fetchComments(postId: String) async -> [CommentDoc] {
+        guard uid != nil else { return [] }
+        let snap = try? await db.collection("posts").document(postId).collection("comments")
+            .order(by: "createdAt").getDocuments()
+        return snap?.documents.compactMap { try? $0.data(as: CommentDoc.self) } ?? []
+    }
+
+    func addComment(postId: String, postAuthorId: String?, text: String) async {
+        guard let uid else { return }
+        if ProfileStore.shared.profile == nil { await ProfileStore.shared.load() }
+        guard let me else { return }
+        let c = CommentDoc(authorId: uid, authorName: me.name, text: text, createdAt: Date())
+        _ = try? db.collection("posts").document(postId).collection("comments").addDocument(from: c)
+        // Mitteilung an den Beitrags-Autor (nicht an sich selbst)
+        if let author = postAuthorId, author != uid {
+            let notif = NotifDoc(type: "comment", fromId: uid, fromName: me.name, fromRole: me.role, createdAt: Date())
+            _ = try? db.collection("users").document(author).collection("notifications").addDocument(from: notif)
+        }
     }
 
     // Profil einer fremden Person nachladen
