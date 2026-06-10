@@ -121,27 +121,38 @@ struct PitchTabBar: View {
             tabItem(icon: "bubble.left.and.bubble.right.fill", index: 3)
             tabItem(icon: "person.fill", index: 4)
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .background(Theme.surface.opacity(0.4))
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(.thinMaterial)                       // helleres, brechendes Glas (iOS-Look)
+        .background(Color.white.opacity(0.06))
         .clipShape(Capsule())
         .overlay(
+            // Specular-Rim wie beim System-Glas: oben-links hell, unten dezenter Glanz
             Capsule().strokeBorder(
-                LinearGradient(colors: [Color.white.opacity(0.7), Color.white.opacity(0.2), Color.white.opacity(0.45)],
+                LinearGradient(colors: [Color.white.opacity(0.85), Color.white.opacity(0.25),
+                                        Color.white.opacity(0.10), Color.white.opacity(0.55)],
                                startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: 1)
+                lineWidth: 1.2)
         )
-        .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
+        .shadow(color: .black.opacity(0.25), radius: 22, y: 10)
     }
 
     private func tabItem(icon: String, index: Int) -> some View {
         let active = tab == index
-        return Image(systemName: icon)
-            .font(.system(size: 21, weight: active ? .bold : .regular))
-            .foregroundStyle(active ? Theme.accent : Theme.textMuted)
-            .frame(maxWidth: .infinity).frame(height: 44)
-            .contentShape(Rectangle())
-            .onTapGesture { onSelect(index) }
+        return ZStack {
+            // aktiver Tab: weiche Glas-Linse hinter dem Icon (wie Instagram)
+            if active {
+                Capsule()
+                    .fill(Color.white.opacity(0.16))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.6))
+                    .frame(width: 56, height: 44)
+            }
+            Image(systemName: icon)
+                .font(.system(size: 21, weight: active ? .bold : .regular))
+                .foregroundStyle(active ? Theme.accent : Theme.textMuted)
+        }
+        .frame(maxWidth: .infinity).frame(height: 48)
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect(index) }
     }
 
     private func plusItem() -> some View {

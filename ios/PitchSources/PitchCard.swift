@@ -34,14 +34,14 @@ func defaultFields(for role: String) -> [PitchField] {
             .init(icon: "calendar",            label: "Alter",                   value: "34"),
             .init(icon: "clock.fill",           label: "Erfahrung",               value: "8 Jahre"),
             .init(icon: "trophy.fill",          label: "Aktuelle Liga",           value: "Kreisliga"),
-            .init(icon: "mappin.and.ellipse",   label: "Location",                value: "Düsseldorf"),
+            .init(icon: "mappin.and.ellipse",   label: "Ort",                value: "Düsseldorf"),
             .init(icon: "shield.fill",          label: "Aktueller Verein",        value: "SV Düsseldorf 04"),
             .init(icon: "rectangle.3.group",    label: "Aufstellung",             value: "4-3-3"),
         ]
     case "Scout":
         return [
             .init(icon: "clock.fill",           label: "Erfahrung",               value: "5 Jahre"),
-            .init(icon: "mappin.and.ellipse",   label: "Location",                value: "Düsseldorf"),
+            .init(icon: "mappin.and.ellipse",   label: "Ort",                value: "Düsseldorf"),
             .init(icon: "building.2.fill",      label: "Organisation",            value: "FC Beispiel"),
             .init(icon: "binoculars.fill",      label: "Fokus-Liga",              value: "Landesliga / Oberliga"),
         ]
@@ -49,7 +49,7 @@ func defaultFields(for role: String) -> [PitchField] {
         return [
             .init(icon: "calendar",             label: "Gegründet",               value: "1904"),
             .init(icon: "trophy.fill",          label: "Liga",                    value: "Bezirksliga"),
-            .init(icon: "mappin.and.ellipse",   label: "Location",                value: "Düsseldorf"),
+            .init(icon: "mappin.and.ellipse",   label: "Ort",                value: "Düsseldorf"),
             .init(icon: "sportscourt.fill",     label: "Heimstätte",              value: "Sportpark Eller"),
             .init(icon: "person.3.fill",        label: "Sucht",                   value: "Stürmer, IV"),
         ]
@@ -57,7 +57,7 @@ func defaultFields(for role: String) -> [PitchField] {
         return [
             .init(icon: "calendar",            label: "Alter",                   value: "23"),
             .init(icon: "figure.soccer",        label: "Position",                value: "Innenverteidiger"),
-            .init(icon: "mappin.and.ellipse",   label: "Location",                value: "Düsseldorf"),
+            .init(icon: "mappin.and.ellipse",   label: "Ort",                value: "Düsseldorf"),
             .init(icon: "shield.fill",          label: "Aktueller Verein",        value: "SV Düsseldorf 04"),
             .init(icon: "trophy.fill",          label: "Aktuelle Liga",           value: "Landesliga"),
         ]

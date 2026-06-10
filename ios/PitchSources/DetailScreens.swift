@@ -10,6 +10,7 @@ struct PersonRef: Identifiable, Hashable {
     let icon: String
     var rating: String? = nil
     var sub: String = ""
+    var uid: String? = nil    // Firestore-uid → echte Person (Follow/Chat laufen über die Datenbank)
 }
 
 // Rolle aus dem Icon ableiten (für Mitteilungen/Chats, wo keine Rolle mitkommt)
@@ -62,11 +63,33 @@ struct UserProfileView: View {
     let person: PersonRef
 
     @State private var following = false
+    @State private var realProfile: UserProfile? = nil           // Firestore-Profil (echte User)
+    @State private var realPosts: [PostDoc] = []
+    @State private var followerCount: Int? = nil
+    @State private var networkCount: Int? = nil
 
     private let postIcons = ["soccerball", "trophy.fill", "flame.fill", "figure.soccer", "star.fill", "soccerball"]
 
     // Reiches Demo-Profil (falls die Person im Verzeichnis steht)
     private var demo: DemoProfile? { demoProfile(for: person.name) }
+
+    // Echte Profil-Felder aus Firestore (Verein/Ort), wenn vorhanden
+    private var realFields: [PitchField]? {
+        guard let p = realProfile else { return nil }
+        var f: [PitchField] = []
+        if !p.club.isEmpty { f.append(PitchField(icon: "shield.fill", label: "Verein", value: p.club)) }
+        if !p.location.isEmpty { f.append(PitchField(icon: "mappin.and.ellipse", label: "Ort", value: p.location)) }
+        return f.isEmpty ? nil : f
+    }
+
+    private func loadReal() async {
+        guard let uid = person.uid else { return }
+        realProfile = await SocialStore.shared.fetchProfile(of: uid)
+        following = await SocialStore.shared.isFollowing(id: uid)
+        followerCount = await SocialStore.shared.fetchRelations(of: uid, kind: "followers").count
+        networkCount = await SocialStore.shared.fetchRelations(of: uid, kind: "following").count
+        realPosts = await SocialStore.shared.fetchPosts().filter { $0.authorId == uid }
+    }
 
     // PitchCard kennt Trainer/Scout/Spieler — Rollen mappen
     private var cardRole: String {
@@ -85,17 +108,18 @@ struct UserProfileView: View {
                 BackHeader(title: person.name)
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Fremdprofil: Netzwerk (Zwei-Wege-Kontakte) + Follower (Content)
+                        // Fremdprofil: Folgt + Follower (echte Zahlen bei registrierten Usern)
                         HStack(spacing: 0) {
                             VStack(spacing: 3) {
-                                Text("\(demo?.network ?? 34)").font(.pitchHead(20)).foregroundStyle(Theme.text)
-                                Text("NETZWERK").font(.system(size: 9, weight: .heavy)).kerning(0.8)
+                                Text("\(networkCount ?? demo?.network ?? 0)").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                Text(person.uid != nil ? "FOLGT" : "NETZWERK")
+                                    .font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
                             }
                             .frame(maxWidth: .infinity)
                             Rectangle().fill(Theme.line.opacity(0.6)).frame(width: 1, height: 30)
                             VStack(spacing: 3) {
-                                Text("\(demo?.followers ?? 248)").font(.pitchHead(20)).foregroundStyle(Theme.text)
+                                Text("\(followerCount ?? demo?.followers ?? 0)").font(.pitchHead(20)).foregroundStyle(Theme.text)
                                 Text("FOLLOWER").font(.system(size: 9, weight: .heavy)).kerning(0.8)
                                     .foregroundStyle(Theme.textMuted)
                             }
@@ -105,17 +129,18 @@ struct UserProfileView: View {
                         .glassCard()
 
                         if person.role == "Spieler" {
-                            PitchCard(name: person.name, fields: demo?.fields, roleLabel: cardRole,
+                            PitchCard(name: person.name, fields: realFields ?? demo?.fields, roleLabel: cardRole,
                                       jerseyNumber: demo?.jersey ?? "10",
                                       attributes: demo?.attributes ?? ["Schnelligkeit","Zweikampf","Kopfball"],
-                                      photoFallback: true, imageName: demo?.image)
+                                      photoFallback: person.uid == nil, imageName: demo?.image)
                             actionRow
                             infoSection
                             beitraege
                             linkedSection      // Fupa/Fußball.de nur bei Spielern
                         } else {
                             ActorCard(name: person.name, roleLabel: cardRole,
-                                      fields: demo?.fields, bio: infoText, photoFallback: true,
+                                      fields: realFields ?? demo?.fields, bio: infoText,
+                                      photoFallback: person.uid == nil,
                                       imageName: demo?.image)
                             actionRow
                             beitraege
@@ -128,6 +153,7 @@ struct UserProfileView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
+        .task { await loadReal() }
     }
 
     // Folgen (Content) + Schreiben (Chat)
@@ -135,6 +161,13 @@ struct UserProfileView: View {
         HStack(spacing: 10) {
             Button {
                 withAnimation(.spring(duration: 0.2)) { following.toggle() }
+                if let uid = person.uid {
+                    let nowFollowing = following
+                    Task {
+                        if nowFollowing { await SocialStore.shared.follow(id: uid, name: person.name, role: person.role) }
+                        else { await SocialStore.shared.unfollow(id: uid) }
+                    }
+                }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: following ? "checkmark" : "plus").font(.system(size: 13, weight: .heavy))
@@ -212,6 +245,7 @@ struct UserProfileView: View {
     }
 
     private var infoText: String {
+        if let bio = realProfile?.bio, !bio.isEmpty { return bio }   // echte Bio aus Firestore
         if let bio = demo?.bio { return bio }
         switch person.role {
         case "Verein", "Vereinsverantwortlicher":
@@ -242,6 +276,22 @@ struct UserProfileView: View {
     private var beitraege: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Beiträge")
+            if person.uid != nil {
+                // Echte Beiträge des Users aus Firestore
+                if realPosts.isEmpty {
+                    Text("Noch keine Beiträge")
+                        .font(.system(size: 13)).foregroundStyle(Theme.textMuted)
+                        .frame(maxWidth: .infinity, alignment: .center).padding(.vertical, 20)
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(realPosts) { p in
+                            postTeaser(DemoPost(category: p.category, caption: p.caption,
+                                                rating: nil, icon: iconForRole(p.authorRole),
+                                                time: timeAgo(p.createdAt)))
+                        }
+                    }
+                }
+            } else
             // Echte Demo-Posts als Teaser (falls vorhanden), sonst Platzhalter-Raster
             if let posts = demo?.posts, !posts.isEmpty {
                 VStack(spacing: 10) {
@@ -303,11 +353,17 @@ struct ChatView: View {
     let person: PersonRef
     @AppStorage("chatOpen") private var chatOpen = false   // blendet die Tab-Leiste aus
     @State private var draft = ""
-    @State private var messages: [ChatMsg] = [
-        .init(text: "Pitch angenommen — lass uns reden!", mine: false),
-        .init(text: "Stark, danke dir! Wann hättest du Zeit für ein Probetraining?", mine: true),
-        .init(text: "Diese Woche Donnerstag 18 Uhr?", mine: false),
-    ]
+    @State private var messages: [ChatMsg] = []
+    @State private var listener: AnyObject? = nil
+
+    // Echte Nachrichten live aus Firestore (wenn die Person eine echte uid hat)
+    private func attachIfReal() {
+        guard let uid = person.uid, let cid = SocialStore.shared.chatId(with: uid) else { return }
+        let myUid = AuthService.shared.user?.uid
+        listener = SocialStore.shared.listenMessages(chatId: cid) { docs in
+            messages = docs.map { ChatMsg(text: $0.text, mine: $0.senderId == myUid) }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -336,17 +392,11 @@ struct ChatView: View {
 
                 ScrollView {
                     VStack(spacing: 10) {
-                        // System-Hinweis: erfolgreicher Pitch
-                        HStack(spacing: 6) {
-                            Image(systemName: "bolt.fill").font(.system(size: 10, weight: .black))
-                            Text("Pitch erfolgreich · ihr seid vernetzt")
-                                .font(.system(size: 11, weight: .semibold))
+                        if messages.isEmpty {
+                            Text("Schreib die erste Nachricht an \(person.name)")
+                                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.textMuted)
+                                .padding(.vertical, 24)
                         }
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(Theme.accent.opacity(0.12)).clipShape(Capsule())
-                        .padding(.vertical, 6)
-
                         ForEach(messages) { m in bubble(m) }
                     }
                     .padding(16)
@@ -362,7 +412,14 @@ struct ChatView: View {
                     Button {
                         let t = draft.trimmingCharacters(in: .whitespaces)
                         guard !t.isEmpty else { return }
-                        messages.append(.init(text: t, mine: true)); draft = ""
+                        if let uid = person.uid {
+                            // echte Nachricht → Firestore (Listener spielt sie zurück)
+                            Task { await SocialStore.shared.sendMessage(
+                                to: uid, otherName: person.name, otherRole: person.role, text: t) }
+                        } else {
+                            messages.append(.init(text: t, mine: true))
+                        }
+                        draft = ""
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 17, weight: .black)).foregroundStyle(Theme.accentText)
@@ -376,7 +433,7 @@ struct ChatView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
-        .onAppear { chatOpen = true }
+        .onAppear { chatOpen = true; attachIfReal() }
         .onDisappear { chatOpen = false }
     }
 
@@ -576,7 +633,7 @@ struct EditProfileView: View {
                         }
                         field("Aktueller Verein", $verein)
                         field("Aktuelle Liga", $liga)
-                        field("Location", $location)
+                        field("Ort", $location)
 
                         // Bio
                         VStack(alignment: .leading, spacing: 2) {
@@ -810,19 +867,20 @@ struct FollowersView: View {
     @State private var tab = 0
     @State private var unfollowed: Set<UUID> = []
 
-    private let followers: [PersonRef] = [
-        .init(name: "Leon Bäcker",  role: "Spieler", icon: "soccerball",      sub: "Stürmer · Landesliga"),
-        .init(name: "Jonas Weber",  role: "Spieler", icon: "soccerball",      sub: "Innenverteidiger · Kreisliga"),
-        .init(name: "Coach Demir",  role: "Coach",   icon: "flame.fill",      sub: "A-Lizenz · Oberliga"),
-        .init(name: "Lena Groß",    role: "Scout",   icon: "binoculars.fill", sub: "Talentscout · NRW"),
-        .init(name: "Tim Albers",   role: "Spieler", icon: "soccerball",      sub: "Innenverteidiger · Kreisliga"),
-    ]
-    private let following: [PersonRef] = [
-        .init(name: "SV Düsseldorf 04", role: "Verein",  icon: "trophy.fill",     sub: "Bezirksliga"),
-        .init(name: "Coach Demir",      role: "Coach",   icon: "flame.fill",      sub: "A-Lizenz · Oberliga"),
-        .init(name: "Lena Groß",        role: "Scout",   icon: "binoculars.fill", sub: "Talentscout · NRW"),
-        .init(name: "Leon Bäcker",      role: "Spieler", icon: "soccerball",      sub: "Stürmer · Landesliga"),
-    ]
+    // Echte Listen aus Firestore
+    @State private var followers: [PersonRef] = []
+    @State private var following: [PersonRef] = []
+    @State private var listsLoaded = false
+
+    private func loadLists() async {
+        followers = await SocialStore.shared.fetchRelations(kind: "followers").map {
+            PersonRef(name: $0.name, role: $0.role, icon: iconForRole($0.role), uid: $0.id)
+        }
+        following = await SocialStore.shared.fetchRelations(kind: "following").map {
+            PersonRef(name: $0.name, role: $0.role, icon: iconForRole($0.role), uid: $0.id)
+        }
+        listsLoaded = true
+    }
 
     var body: some View {
         ZStack {
@@ -847,6 +905,7 @@ struct FollowersView: View {
         .toolbar(.hidden, for: .navigationBar)
         .preferredColorScheme(Theme.scheme)
         .onAppear { tab = startTab }
+        .task { await loadLists() }
     }
 
     private func segment(_ label: String, _ idx: Int) -> some View {
@@ -879,6 +938,12 @@ struct FollowersView: View {
                 Button {
                     withAnimation(.spring(duration: 0.2)) {
                         if isFollowing { unfollowed.insert(p.id) } else { unfollowed.remove(p.id) }
+                    }
+                    if let uid = p.uid {
+                        Task {
+                            if isFollowing { await SocialStore.shared.unfollow(id: uid) }
+                            else { await SocialStore.shared.follow(id: uid, name: p.name, role: p.role) }
+                        }
                     }
                 } label: {
                     Text(isFollowing ? "Folge ich" : "Folgen")

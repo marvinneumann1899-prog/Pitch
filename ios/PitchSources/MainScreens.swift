@@ -14,30 +14,26 @@ struct FeedPost: Identifiable {
     let icon: String
     let reason: String   // feed-algorithm: Transparenz warum dieser Post erscheint
     var image: String? = nil   // gebündelter Clip
+    var authorId: String? = nil   // Firestore-uid des Autors (echte Posts)
 
-    var person: PersonRef { PersonRef(name: user, role: role, icon: icon, rating: rating) }
+    var person: PersonRef { PersonRef(name: user, role: role, icon: icon, rating: rating, uid: authorId) }
 }
 
-// Feed aus EINER Quelle: den Posts der Demo-Personen (verschachtelt, damit es lebt).
-// Tippt man auf einen Autor, landet man auf seinem echten Profil.
-private let demoPosts: [FeedPost] = makeDemoFeed()
-
-private func makeDemoFeed() -> [FeedPost] {
-    let reasons = ["In deiner Nähe", "Weil du Fußball folgst",
-                   "Dein Kontakt hat das bewertet", "Dein Kontakt folgt dem Profil"]
-    // genau EINE Karte pro Person (erster Beitrag) → keine Dopplungen
-    return demoPeople.enumerated().compactMap { i, person in
-        guard let post = person.posts.first else { return nil }
-        return FeedPost(user: person.name, role: person.role, time: post.time,
-                        category: post.category, rating: post.rating,
-                        caption: post.caption, icon: post.icon,
-                        reason: reasons[i % reasons.count], image: post.image)
+// Echte Beiträge aus Firestore → Feed-Karten
+private func makeRealFeed() async -> [FeedPost] {
+    await SocialStore.shared.fetchPosts().map { p in
+        FeedPost(user: p.authorName, role: p.authorRole, time: timeAgo(p.createdAt),
+                 category: p.category, rating: nil, caption: p.caption,
+                 icon: iconForRole(p.authorRole), reason: "", image: nil, authorId: p.authorId)
     }
 }
 
 struct FeedView: View {
     @State private var showSearch = false
     @State private var ratingLock = false   // sperrt den Scroll, während bewertet wird
+    @State private var posts: [FeedPost] = []
+    @State private var loaded = false
+    @StateObject private var social = SocialStore.shared
     var body: some View {
         NavigationStack {
             ZStack {
@@ -62,11 +58,22 @@ struct FeedView: View {
                     .padding(.horizontal, 18).padding(.vertical, 8)
 
                     PitchRefresh(scrollLocked: ratingLock) {
-                        // TODO: echtes Neuladen (Firebase) — neue Beiträge holen
-                        try? await Task.sleep(nanoseconds: 1_100_000_000)
+                        posts = await makeRealFeed()
                     } content: {
                         LazyVStack(spacing: 8) {
-                            ForEach(demoPosts) { post in
+                            if loaded && posts.isEmpty {
+                                VStack(spacing: 12) {
+                                    PitchMark(fg: Theme.accent).frame(width: 40, height: 40)
+                                    Text("Noch keine Beiträge").font(.pitchHead(17)).foregroundStyle(Theme.text)
+                                    Text("Poste dein erstes Highlight über das ＋ unten\noder folge Leuten über die Suche.")
+                                        .font(.system(size: 13)).foregroundStyle(Theme.textMuted)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity).padding(.vertical, 80)
+                                .glassCard()
+                                .padding(.horizontal, 16).padding(.top, 40)
+                            }
+                            ForEach(posts) { post in
                                 PostCard(post: post, onRatingActive: { ratingLock = $0 })
                             }
                         }
@@ -78,6 +85,10 @@ struct FeedView: View {
         }
         .preferredColorScheme(Theme.scheme)
         .sheet(isPresented: $showSearch) { SearchView() }
+        .task(id: social.feedVersion) {
+            posts = await makeRealFeed()
+            loaded = true
+        }
     }
 }
 
@@ -150,15 +161,20 @@ private struct PostCard: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button { withAnimation(.spring(duration: 0.2)) { following = true } } label: {
-                        Image(systemName: following ? "checkmark" : "plus")
-                            .font(.system(size: 10, weight: .heavy))
-                            .foregroundStyle(following ? Theme.accent : .black)
-                            .frame(width: 22, height: 22)
-                            .background(following ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(Theme.accent))
-                            .clipShape(Circle())
+                    if let authorId = post.authorId, authorId != AuthService.shared.user?.uid {
+                        Button {
+                            withAnimation(.spring(duration: 0.2)) { following = true }
+                            Task { await SocialStore.shared.follow(id: authorId, name: post.user, role: post.role) }
+                        } label: {
+                            Image(systemName: following ? "checkmark" : "plus")
+                                .font(.system(size: 10, weight: .heavy))
+                                .foregroundStyle(following ? Theme.accent : .black)
+                                .frame(width: 22, height: 22)
+                                .background(following ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(Theme.accent))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.leading, 6).padding(.trailing, 10).padding(.vertical, 6)
                 .mediaGlass(Theme.rPill)
@@ -391,27 +407,32 @@ struct ProfileView: View {
     @State private var showEdit = false
     @State private var showAttrPicker = false
     @State private var attributes: [String] = ["Schnelligkeit", "Zweikampf", "Kopfball"]
-    @State private var bio = "Innenverteidiger mit Drang nach vorne. Suche den nächsten Schritt — ehrgeizig, teamfähig, immer am Limit."
+    @State private var bio = ""
 
-    // Eigene Beiträge (für das Beiträge-Fenster) — wie im Feed, inkl. Rating
-    private let ownPosts: [FeedPost] = [
-        .init(user: "Marvin Neumann", role: "Spieler", time: "vor 2 Tagen", category: "Highlight",
-              rating: "8.9", caption: "Freistoßtor von der Strafraumkante. Wochenende war stark.",
-              icon: "soccerball", reason: ""),
-        .init(user: "Marvin Neumann", role: "Spieler", time: "vor 1 Woche", category: "Highlight",
-              rating: "8.4", caption: "Kopfballtor nach Ecke — Timing hat gepasst.",
-              icon: "soccerball", reason: ""),
-        .init(user: "Marvin Neumann", role: "Spieler", time: "vor 2 Wochen", category: "Highlight",
-              rating: "9.1", caption: "Tackling, Ballgewinn, direkt den Konter eingeleitet.",
-              icon: "soccerball", reason: ""),
-    ]
+    // Echte Daten aus Firestore
+    @State private var followerCount = 0
+    @State private var followingCount = 0
+    @State private var ownPosts: [FeedPost] = []
+    @StateObject private var social = SocialStore.shared
+
+    private func loadOwn() async {
+        if let p = ProfileStore.shared.profile, !p.bio.isEmpty { bio = p.bio }
+        followerCount = await SocialStore.shared.fetchRelations(kind: "followers").count
+        followingCount = await SocialStore.shared.fetchRelations(kind: "following").count
+        let myUid = AuthService.shared.user?.uid
+        ownPosts = await SocialStore.shared.fetchPosts()
+            .filter { $0.authorId == myUid }
+            .map { FeedPost(user: $0.authorName, role: $0.authorRole, time: timeAgo($0.createdAt),
+                            category: $0.category, rating: nil, caption: $0.caption,
+                            icon: iconForRole($0.authorRole), reason: "", authorId: $0.authorId) }
+    }
 
     var body: some View {
         NavigationStack {
         ZStack {
             AmbientBackground()
             PitchRefresh {
-                try? await Task.sleep(nanoseconds: 1_100_000_000)
+                await loadOwn()
             } content: {
                 VStack(spacing: 16) {
                     HStack {
@@ -428,24 +449,21 @@ struct ProfileView: View {
                         .buttonStyle(.plain)
                     }
 
-                    // Stats: Netzwerk (Zwei-Wege-Kontakte) · Follower · Folge ich (Content)
+                    // Stats: Beiträge · Follower · Folge ich — alles echte Zahlen
                     HStack(spacing: 0) {
-                        NavigationLink { FollowersView(startTab: 0) } label: {
-                            statCol(value: "34", label: "NETZWERK")
-                        }
-                        .buttonStyle(.plain)
+                        statCol(value: "\(ownPosts.count)", label: "BEITRÄGE")
 
                         Rectangle().fill(Theme.line.opacity(0.6)).frame(width: 1, height: 30)
 
                         NavigationLink { FollowersView(startTab: 0) } label: {
-                            statCol(value: "248", label: "FOLLOWER")
+                            statCol(value: "\(followerCount)", label: "FOLLOWER")
                         }
                         .buttonStyle(.plain)
 
                         Rectangle().fill(Theme.line.opacity(0.6)).frame(width: 1, height: 30)
 
                         NavigationLink { FollowersView(startTab: 1) } label: {
-                            statCol(value: "96", label: "FOLGE ICH")
+                            statCol(value: "\(followingCount)", label: "FOLGE ICH")
                         }
                         .buttonStyle(.plain)
                     }
@@ -464,8 +482,9 @@ struct ProfileView: View {
                     if isPlayer {
                         VStack(alignment: .leading, spacing: 10) {
                             SectionLabel("Info über mich")
-                            Text(bio)
-                                .font(.system(size: 13)).foregroundStyle(Theme.text).lineSpacing(4)
+                            Text(bio.isEmpty ? "Noch keine Info — füge über Profil bearbeiten eine kurze Beschreibung hinzu." : bio)
+                                .font(.system(size: 13))
+                                .foregroundStyle(bio.isEmpty ? Theme.textMuted : Theme.text).lineSpacing(4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(16)
                                 .glassCard()
@@ -477,14 +496,25 @@ struct ProfileView: View {
                     // Beiträge 1:1 wie im Feed (Rating, Beschreibung, Kommentar, Bewerten) — nur ohne Kopf.
                     VStack(alignment: .leading, spacing: 10) {
                         SectionLabel("Deine Beiträge")
-                        ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 14) {
-                                ForEach(ownPosts) { PostCard(post: $0, showHeader: false) }
+                        if ownPosts.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "plus.square.dashed").font(.system(size: 26)).foregroundStyle(Theme.textFaint)
+                                Text("Noch keine Beiträge").font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.text)
+                                Text("Poste dein erstes Highlight über das ＋ unten.")
+                                    .font(.system(size: 12)).foregroundStyle(Theme.textMuted)
                             }
-                            .padding(12)
+                            .frame(maxWidth: .infinity).padding(.vertical, 40)
+                            .glassCard()
+                        } else {
+                            ScrollView(showsIndicators: false) {
+                                LazyVStack(spacing: 14) {
+                                    ForEach(ownPosts) { PostCard(post: $0, showHeader: false) }
+                                }
+                                .padding(12)
+                            }
+                            .frame(height: 460)
+                            .glassCard()
                         }
-                        .frame(height: 460)
-                        .glassCard()
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -517,6 +547,7 @@ struct ProfileView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .task(id: social.feedVersion) { await loadOwn() }
     }
 
     private func statCol(value: String, label: String) -> some View {
@@ -564,6 +595,7 @@ struct CreatePostView: View {
     var onDone: () -> Void = {}
     @State private var category = "Highlight"
     @State private var text = ""
+    @State private var posting = false
     @State private var selectedMedia: PhotosPickerItem? = nil
     @State private var mediaImage: UIImage? = nil
     @State private var showSourceDialog = false
@@ -649,7 +681,19 @@ struct CreatePostView: View {
                         }
                         .buttonStyle(.plain)
 
-                        PitchButton(label: "Posten", action: onDone).padding(.top, 8)
+                        PitchButton(label: posting ? "Wird gepostet…" : "Posten") {
+                            let caption = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !caption.isEmpty, !posting else { return }
+                            posting = true
+                            Task { @MainActor in
+                                await SocialStore.shared.createPost(caption: caption, category: category)
+                                posting = false
+                                text = ""
+                                onDone()
+                            }
+                        }
+                        .opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+                        .padding(.top, 8)
                     }
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 40)
                 }
@@ -758,20 +802,27 @@ struct ChatRow: Identifiable {
     let time: String
     let icon: String
     let unread: Bool
+    var uid: String? = nil    // Gegenseite (Firestore)
+    var role: String = ""
 }
-
-private let demoChats: [ChatRow] = [
-    .init(name: "Coach Demir", last: "Pitch angenommen — lass uns reden!", time: "09:14", icon: "flame.fill", unread: true),
-    .init(name: "TSV Eller 04", last: "Wann hättest du Zeit für ein Probetraining?", time: "gestern", icon: "trophy.fill", unread: true),
-    .init(name: "Lena Groß", last: "Hab dich am Samstag spielen sehen — stark!", time: "Di", icon: "binoculars.fill", unread: true),
-    .init(name: "Jonas Weber", last: "Kommst du Freitag zum Training?", time: "Di", icon: "soccerball", unread: false),
-    .init(name: "Leon Bäcker", last: "Stark, danke dir!", time: "Mo", icon: "soccerball", unread: false),
-    .init(name: "SV Düsseldorf 04", last: "Wir melden uns nächste Woche bei dir.", time: "So", icon: "trophy.fill", unread: false),
-    .init(name: "Marco Stein", last: "Brudi, der Doppelpack 🤝", time: "Sa", icon: "soccerball", unread: false),
-]
 
 struct MessagesView: View {
     @State private var showNewChat = false
+    @State private var realChats: [ChatRow] = []
+    @State private var chatsLoaded = false
+
+    // Echte Chats aus Firestore → Zeilen (Name/Rolle der Gegenseite + letzte Nachricht)
+    private func loadChats() async {
+        let myUid = AuthService.shared.user?.uid
+        realChats = await SocialStore.shared.fetchChats().compactMap { c in
+            guard let other = c.participants.first(where: { $0 != myUid }) else { return nil }
+            return ChatRow(name: c.names[other] ?? "?", last: c.lastMessage,
+                           time: timeAgo(c.lastAt), icon: iconForRole(c.roles[other] ?? "Spieler"),
+                           unread: false, uid: other, role: c.roles[other] ?? "")
+        }
+        chatsLoaded = true
+    }
+
     var body: some View {
         NavigationStack {
         ZStack {
@@ -791,12 +842,21 @@ struct MessagesView: View {
                 .padding(.horizontal, 18).padding(.vertical, 8)
 
                 PitchRefresh {
-                    try? await Task.sleep(nanoseconds: 1_100_000_000)
+                    await loadChats()
                 } content: {
                     VStack(spacing: 8) {
-                        ForEach(demoChats) { chat in
+                        if chatsLoaded && realChats.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "bubble.left.and.bubble.right").font(.system(size: 26)).foregroundStyle(Theme.textFaint)
+                                Text("Noch keine Chats").font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.text)
+                                Text("Finde Leute über die Lupe und schreib ihnen.")
+                                    .font(.system(size: 12)).foregroundStyle(Theme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity).padding(.vertical, 60)
+                        }
+                        ForEach(realChats) { chat in
                             NavigationLink {
-                                ChatView(person: PersonRef(name: chat.name, role: "", icon: chat.icon))
+                                ChatView(person: PersonRef(name: chat.name, role: chat.role, icon: chat.icon, uid: chat.uid))
                             } label: {
                                 HStack(spacing: 12) {
                                     Avatar(size: 50, name: chat.name)
@@ -824,6 +884,7 @@ struct MessagesView: View {
         }
         .preferredColorScheme(Theme.scheme)
         .sheet(isPresented: $showNewChat) { SearchView() }
+        .task { await loadChats() }
     }
 }
 
@@ -840,24 +901,27 @@ struct NotificationItem: Identifiable {
     let time: String
 }
 
-private let demoNotifs: [NotificationItem] = [
-    .init(type: .follow,  senderName: "Leon Bäcker",     icon: "soccerball",   detail: "",                  time: "vor 1 Std"),
-    .init(type: .rating,  senderName: "Jonas Weber",     icon: "soccerball",   detail: "9.0",               time: "vor 2 Std"),
-    .init(type: .comment, senderName: "TSV Eller 04",    icon: "trophy.fill",  detail: "Genau sowas suchen wir.", time: "vor 3 Std"),
-    .init(type: .follow,  senderName: "Marco Stein",     icon: "soccerball",   detail: "",                  time: "vor 5 Std"),
-    .init(type: .rating,  senderName: "Tim Albers",      icon: "soccerball",   detail: "8.5",               time: "gestern"),
-    .init(type: .comment, senderName: "Coach Demir",     icon: "flame.fill",   detail: "Saubere Technik!",  time: "vor 2 Tagen"),
-    .init(type: .follow,  senderName: "Lena Groß",       icon: "binoculars.fill", detail: "",               time: "vor 2 Tagen"),
-]
-
 struct NotificationsView: View {
     @State private var followStates: [UUID: Bool] = [:]   // true=folgt zurück
+    @State private var items: [NotificationItem] = []
+    @State private var uidByItem: [UUID: String] = [:]    // Mitteilung → Absender-uid
+    @State private var notifsLoaded = false
 
-    // Repräsentativer eigener Beitrag — Kommentar/Bewertung öffnet ihn
-    private var ownPost: FeedPost {
-        FeedPost(user: "Marvin Neumann", role: "Spieler", time: "vor 3 Std", category: "Highlight",
-                 rating: "8.9", caption: "Freistoßtor von der Strafraumkante. Wochenende war stark.",
-                 icon: "soccerball", reason: "Dein Beitrag")
+    // Echte Mitteilungen (Follows) aus Firestore
+    private func loadNotifs() async {
+        let docs = await SocialStore.shared.fetchNotifications()
+        var mapped: [NotificationItem] = []
+        var uids: [UUID: String] = [:]
+        for d in docs {
+            let item = NotificationItem(type: .follow, senderName: d.fromName,
+                                        icon: iconForRole(d.fromRole), detail: "",
+                                        time: timeAgo(d.createdAt))
+            mapped.append(item)
+            uids[item.id] = d.fromId
+        }
+        items = mapped
+        uidByItem = uids
+        notifsLoaded = true
     }
 
     var body: some View {
@@ -872,10 +936,19 @@ struct NotificationsView: View {
                 .padding(.horizontal, 20).padding(.vertical, 10)
 
                 PitchRefresh {
-                    try? await Task.sleep(nanoseconds: 1_100_000_000)
+                    await loadNotifs()
                 } content: {
                     VStack(spacing: 8) {
-                        ForEach(demoNotifs) { n in
+                        if notifsLoaded && items.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "bell").font(.system(size: 26)).foregroundStyle(Theme.textFaint)
+                                Text("Noch keine Mitteilungen").font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.text)
+                                Text("Hier siehst du, wenn dir jemand folgt.")
+                                    .font(.system(size: 12)).foregroundStyle(Theme.textMuted)
+                            }
+                            .frame(maxWidth: .infinity).padding(.vertical, 60)
+                        }
+                        ForEach(items) { n in
                             notifRow(n)
                                 .padding(.horizontal, 14).padding(.vertical, 12)
                                 .glassCard(Theme.rLg)
@@ -888,6 +961,7 @@ struct NotificationsView: View {
         .toolbar(.hidden, for: .navigationBar)
         }
         .preferredColorScheme(Theme.scheme)
+        .task { await loadNotifs() }
     }
 
     @ViewBuilder
@@ -900,7 +974,7 @@ struct NotificationsView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 NavigationLink {
-                    UserProfileView(person: PersonRef(name: n.senderName, role: roleForIcon(n.icon), icon: n.icon))
+                    UserProfileView(person: PersonRef(name: n.senderName, role: roleForIcon(n.icon), icon: n.icon, uid: uidByItem[n.id]))
                 } label: {
                     Text(n.senderName).font(.system(size: 14, weight: .heavy)).foregroundStyle(Theme.text)
                 }
@@ -931,6 +1005,9 @@ struct NotificationsView: View {
             } else {
                 Button {
                     withAnimation(.spring(duration: 0.2)) { followStates[n.id] = true }
+                    if let uid = uidByItem[n.id] {
+                        Task { await SocialStore.shared.follow(id: uid, name: n.senderName, role: roleForIcon(n.icon)) }
+                    }
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 15, weight: .heavy))
@@ -942,17 +1019,13 @@ struct NotificationsView: View {
                 .buttonStyle(.plain)
             }
         case .comment, .rating:
-            NavigationLink {
-                PostDetailView(post: ownPost, openComments: n.type == .comment)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .heavy))
-                    .foregroundStyle(Theme.text)
-                    .frame(width: 36, height: 36)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            }
-            .buttonStyle(.plain)
+            // (kommt mit echten Kommentaren/Bewertungen)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundStyle(Theme.text)
+                .frame(width: 36, height: 36)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
     }
 
@@ -1013,6 +1086,7 @@ struct SearchResult: Identifiable {
     let role: String
     let sub: String
     let icon: String
+    var uid: String? = nil
 }
 
 struct SearchView: View {
@@ -1037,7 +1111,8 @@ struct SearchView: View {
             return SearchResult(name: u.profile.name.isEmpty ? "Ohne Namen" : u.profile.name,
                                 role: u.profile.role,
                                 sub: sub.isEmpty ? "Neu bei Pitch" : sub,
-                                icon: iconForRole(u.profile.role))
+                                icon: iconForRole(u.profile.role),
+                                uid: u.id)
         }
     }
 
@@ -1088,7 +1163,7 @@ struct SearchView: View {
                         }
                         ForEach(results) { r in
                             NavigationLink {
-                                UserProfileView(person: PersonRef(name: r.name, role: r.role, icon: r.icon, sub: r.sub))
+                                UserProfileView(person: PersonRef(name: r.name, role: r.role, icon: r.icon, sub: r.sub, uid: r.uid))
                             } label: {
                                 HStack(spacing: 12) {
                                     Avatar(size: 46, name: r.name)

@@ -13,6 +13,7 @@ struct AuthView: View {
     @State private var isSignUp = false
     @State private var email = ""
     @State private var password = ""
+    @State private var password2 = ""
     @State private var isLoading = false
     @State private var errorMsg: String? = nil
 
@@ -36,6 +37,9 @@ struct AuthView: View {
                 VStack(spacing: 12) {
                     authField("E-Mail", text: $email)
                     authField("Passwort", text: $password, secure: true)
+                    if isSignUp {
+                        authField("Passwort wiederholen", text: $password2, secure: true)
+                    }
 
                     if let err = errorMsg {
                         Text(err).font(.system(size: 12)).foregroundStyle(Theme.danger)
@@ -88,6 +92,10 @@ struct AuthView: View {
     private func handlePrimary() {
         guard !email.isEmpty, !password.isEmpty else {
             errorMsg = "Bitte E-Mail und Passwort eingeben."; return
+        }
+        if isSignUp {
+            guard password.count >= 6 else { errorMsg = "Passwort: mindestens 6 Zeichen."; return }
+            guard password == password2 else { errorMsg = "Die Passwörter stimmen nicht überein."; return }
         }
         isLoading = true
         errorMsg = nil
@@ -334,7 +342,7 @@ struct OnboardingView: View {
                 labeledField("Name", value: $name)
                 staticField("Alter", "23")
                 staticField("Position", "Innenverteidiger")
-                staticField("Location", "Düsseldorf")
+                staticField("Ort", "Düsseldorf")
                 staticField("Aktueller Verein", "SV Düsseldorf 04")
                 staticField("Aktuelle Liga", "Landesliga")
             }
@@ -359,7 +367,7 @@ struct OnboardingView: View {
                 if !isClub {
                     labeledField("Verein (oder leer lassen)", value: $club)
                 }
-                labeledField("Location", value: $location)
+                labeledField("Ort", value: $location)
                 // Beschreibung
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isClub ? "Vereinsbeschreibung" : "Kurzbeschreibung")
@@ -379,10 +387,10 @@ struct OnboardingView: View {
         var f: [PitchField] = []
         if isClub {
             f.append(.init(icon: "trophy.fill", label: "Liga", value: "Bezirksliga"))
-            f.append(.init(icon: "mappin.and.ellipse", label: "Location", value: location.isEmpty ? "—" : location))
+            f.append(.init(icon: "mappin.and.ellipse", label: "Ort", value: location.isEmpty ? "—" : location))
         } else {
             f.append(.init(icon: "shield.fill", label: "Verein", value: club.isEmpty ? "Vereinslos" : club))
-            f.append(.init(icon: "mappin.and.ellipse", label: "Location", value: location.isEmpty ? "—" : location))
+            f.append(.init(icon: "mappin.and.ellipse", label: "Ort", value: location.isEmpty ? "—" : location))
         }
         return f
     }
